@@ -43,10 +43,78 @@ say() { echo "$*"; log "$*"; }
 st_get() { sed -n "s/^$1=//p" "$D/state" 2>/dev/null; }
 st_set() {   # st_set key=value...: the state file rewritten whole (read by status and the up/down waiting)
     { for kv in "$@"; do echo "$kv"; done
-      for k in state role ip freq ssid owner since msg phase; do
+      for k in state role ip freq ssid owner since msg phase home_wifi; do
           case " $* " in *" $k="*) ;; *) v=$(st_get $k); [ -n "$v" ] && echo "$k=$v" ;; esac
       done; } > "$D/state.tmp"
     mv -f "$D/state.tmp" "$D/state"
+}
+SETTINGS=${BANANA_SETTINGS:-/data/banana/settings.conf}
+is_wifi_key() {
+    s=$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*=[[:space:]]*/=/')
+    case $s in wifi=*) return 0 ;; esac
+    return 1
+}
+save_wifi_setting() {   # the wifi= line as it is now, so Disconnect can put it back
+    if [ ! -f "$SETTINGS" ]; then printf 'NONE\n' > "$D/wifi-setting"; return 0; fi
+    while IFS= read -r line || [ -n "$line" ]; do
+        line=$(printf '%s' "$line" | tr -d '\r')
+        if is_wifi_key "$line"; then printf '%s\n' "$line" > "$D/wifi-setting"; return 0; fi
+    done < "$SETTINGS"
+    printf 'NONE\n' > "$D/wifi-setting"
+}
+rewrite_settings() {   # rewrite_settings off|restore. A failure is logged; the link still comes up.
+    saved=
+    if [ "$1" = restore ]; then
+        [ -f "$D/wifi-setting" ] || return 0
+        saved=$(head -n 1 "$D/wifi-setting" | tr -d '\r')
+    fi
+    [ -f "$SETTINGS" ] || { log "settings: no $SETTINGS"; return 0; }
+    tmp=$SETTINGS.direct-link.tmp
+    : > "$tmp" || { log "settings: cannot write beside $SETTINGS"; return 0; }
+    found=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        line=$(printf '%s' "$line" | tr -d '\r')
+        if is_wifi_key "$line"; then
+            found=1
+            if [ "$1" = off ]; then printf 'wifi=off\n' >> "$tmp"
+            elif [ "$saved" != NONE ] && [ -n "$saved" ]; then printf '%s\n' "$saved" >> "$tmp"
+            fi
+        else
+            printf '%s\n' "$line" >> "$tmp"
+        fi
+    done < "$SETTINGS"
+    if [ "$found" = 0 ]; then
+        if [ "$1" = off ]; then printf 'wifi=off\n' >> "$tmp"
+        elif [ "$saved" != NONE ] && [ -n "$saved" ]; then printf '%s\n' "$saved" >> "$tmp"
+        fi
+    fi
+    if cp "$tmp" "$SETTINGS" 2>>"$LOG"; then rm -f "$tmp"
+    else log "settings: could not update $SETTINGS"; rm -f "$tmp"; fi
+    [ "$1" = restore ] && rm -f "$D/wifi-setting"
+    return 0
+}
+mount_guard() {
+    guard=$(CDPATH= cd -- "$(dirname "$SELF")" && pwd)/wifi-guard.sh
+    [ -f "$guard" ] || { log "guard: no wifi-guard.sh (the link still comes up)"; return 0; }
+    cp "$WIFI" "$D/wifi.orig" 2>>"$LOG" || { log "guard: could not copy $WIFI"; return 0; }
+    chmod 755 "$D/wifi.orig" 2>/dev/null || true
+    if mount --bind "$guard" "$WIFI" 2>>"$LOG"; then
+        printf '%s\n' "$WIFI" > "$D/wifi.mount"
+        log "guard: mounted over $WIFI"
+    else
+        log "guard: mount failed (the link still comes up)"
+        rm -f "$D/wifi.orig"
+    fi
+}
+unmount_guard() {
+    [ -f "$D/wifi.mount" ] || return 0
+    target=$(head -n 1 "$D/wifi.mount" | tr -d '\r')
+    umount "$target" 2>>"$LOG" || umount -l "$target" 2>>"$LOG" || true
+    if mount 2>/dev/null | grep -q " on $target "; then
+        log "guard: still mounted on $target"
+        return 0
+    fi
+    rm -f "$D/wifi.mount" "$D/wifi.orig"
 }
 # lock_wait FD SECONDS: flock with a timeout (BusyBox's flock has no -w: -n, tried every 0.2 s)
 lock_wait() {
@@ -178,6 +246,8 @@ restore() {
     rm -f "$D/wpa.pid" "$CTRL/$IF"
     ip route flush dev $IF 2>/dev/null; ip addr flush dev $IF 2>/dev/null; ip link set $IF down 2>/dev/null
     [ -n "$LOCKED" ] && { flock -u 8; exec 8>&-; LOCKED=; }
+    unmount_guard
+    rewrite_settings restore
     if [ -z "$HOME_UP" ]; then
         log "restore: BananaOS's Wi-Fi was off before the link: left off"
     elif [ "$MODE" = sleep ]; then
@@ -217,10 +287,15 @@ supervise() {   # _supervise ROLE OWNER FREQ MAX HOME_UP
     trap 'MODE=$(cat "$D/stop" 2>/dev/null); [ "$MODE" = sleep ] || MODE=normal; log "signal ($MODE): restoring"; exit 0' INT TERM HUP
     # phase (reported for BananaDS's page): leaving (the home Wi-Fi going down), search (the cell looked for),
     # joining (heard: joined) or starting (not heard: this one starts it), up
-    st_set state=starting role="$ROLE" ip= freq="$FREQ" ssid="$SSID" owner="$OWNER" since="$(date +%s)" msg= phase=leaving
+    hw=off; [ -n "$HOME_UP" ] && hw=on
+    st_set state=starting role="$ROLE" ip= freq="$FREQ" ssid="$SSID" owner="$OWNER" since="$(date +%s)" msg= phase=leaving home_wifi=$hw
     # the watchdog: the supervisor gone without its restore (kill -9): the same, from outside
     setsid sh "$SELF" _watchdog $$ "$HOME_UP" < /dev/null > /dev/null 2>&1 &
+    unmount_guard
+    save_wifi_setting
     "$WIFI" down >> "$LOG" 2>&1 9>&-
+    mount_guard
+    rewrite_settings off || log "settings: wifi=off was not written"
     exec 8>"$WIFILOCK"
     lock_wait 8 10 && LOCKED=1 || fail "BananaOS's Wi-Fi is busy (wifi.lock)"
     pidof wpa_supplicant >/dev/null && { log "a wpa_supplicant still runs: stopped"; killall wpa_supplicant 2>/dev/null; sleep 0.5; }
@@ -303,6 +378,8 @@ watchdog() {   # _watchdog SUPER_PID HOME_UP
     rm -f "$D/wpa.pid" "$D/super.pid"
     ip route flush dev $IF 2>/dev/null; ip addr flush dev $IF 2>/dev/null
     touch "$D/restored"; st_set state=down role= ip= msg="restored by the watchdog"
+    unmount_guard
+    rewrite_settings restore
     [ -n "$2" ] && "$WIFI" restart >> "$LOG" 2>&1
     exit 0
 }
@@ -384,7 +461,7 @@ cmd_status() {
     s=$(st_get state); [ -n "$p" ] || s=down
     echo "state=${s:-down}"
     [ -n "$p" ] || exit 0
-    for k in role ip freq ssid owner since msg phase; do v=$(st_get $k); [ -n "$v" ] && echo "$k=$v"; done
+    for k in role ip freq ssid owner since msg phase home_wifi; do v=$(st_get $k); [ -n "$v" ] && echo "$k=$v"; done
     # the other consoles seen on the link (ARP entries on wlan0 that answered)
     echo "peers=$(awk -v i=$IF '$6 == i && $3 == "0x2" { n++ } END { print n + 0 }' /proc/net/arp 2>/dev/null)"
     exit 0
@@ -397,5 +474,13 @@ down) shift; cmd_down "$@" ;;
 status) cmd_status ;;
 _supervise) shift; supervise "$@" ;;
 _watchdog) shift; watchdog "$@" ;;
+_setting) shift
+    case ${1:-} in
+        save) save_wifi_setting ;;
+        off) rewrite_settings off ;;
+        restore) rewrite_settings restore ;;
+        *) echo "usage: wifi-link _setting save|off|restore" >&2; exit 2 ;;
+    esac
+    exit 0 ;;
 *) echo "usage: wifi-link up host|join [--owner PID] [--channel N|--freq MHZ] [--max S] | down [--sleep] [--nowait] | status" >&2; exit 2 ;;
 esac

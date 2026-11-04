@@ -24,8 +24,8 @@ Add only the folder and the file from this zip:
 Then reboot once and open Apps. The tile is Direct Link.
 
 One handheld presses Host. The other presses Join.
-In RetroArch or PPSSPP, type the host address shown on screen: 10.42.0.1.
-There is no internet while the link is up. Disconnect brings the home Wi-Fi back.
+Connect from RetroArch, PPSSPP, or BananaDS. Don't change Wi-Fi in Settings while the link is on.
+If Wi-Fi was on, Disconnect brings it back.
 
 One folder too deep
 -------------------
@@ -49,7 +49,7 @@ English
 3. Copy the direct-link folder to store/apps/ and Direct Link.sh to store/tiles/.
 4. Reboot once. Open Apps > Direct Link.
 
-Uninstall: in the app, Y, then A. That disconnects and deletes the app and the tile.
+Uninstall: while the link is off, Y, then A. That deletes the app and the tile.
 
 Español
 -------
@@ -63,4 +63,4 @@ Español
 3. Copia la carpeta direct-link a store/apps/ y Direct Link.sh a store/tiles/.
 4. Reinicia una vez. Abre Apps > Direct Link.
 
-Desinstalar: en la app, Y y luego A. Eso desconecta y borra la app y el tile.
+Desinstalar: con el enlace apagado, Y y luego A. Eso borra la app y el tile.

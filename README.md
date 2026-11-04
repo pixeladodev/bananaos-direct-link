@@ -6,13 +6,11 @@ The link stays up after you leave the app and while you change games. Disconnect
 
 The cell is open. BananaOS's wpa_supplicant is built without encrypted ad-hoc (IBSS RSN), so anyone in range can join. This is a local link, not a private network.
 
-This tree has not been tried on a handheld yet.
-
 ## Install
 
 The zip contains `direct-link/`, `Direct Link.sh` and `INSTALL.txt`. Copy the folder to `store/apps/` and the tile to `store/tiles/`. Do not replace `store`. Reboot once, then open Apps. The full steps are in `INSTALL.txt`.
 
-Devices: Anbernic RG DS and RG DS Plus, BananaOS 0.5.0.1.
+Devices: Anbernic RG DS and RG DS Plus, BananaOS 0.5.2.2 (also works on 0.5.0.1).
 
 ## Uninstall
 
@@ -24,7 +22,13 @@ In the app, Y, then A. That disconnects and deletes `store/apps/direct-link` and
 
 ## Build
 
-`./build/package.sh` compiles the on-screen app and writes `dist/direct-link-<version>.zip`. Set `CC` to an aarch64 gcc whose sysroot has libdrm, or have the `bananads-build:1` image available. `./build/selftest.sh` checks the scripts without a handheld.
+`./build/release-build.sh` (in Docker, `debian:trixie-slim`) is what a release runs. `./build/package.sh` compiles the on-screen app and writes `dist/direct-link-<version>.zip`. Set `CC` to an aarch64 gcc whose sysroot has libdrm, or have the `bananads-build:1` image available. `./build/selftest.sh` checks the scripts without a handheld.
+
+## Built with AI agents
+
+Direct Link is an open source project built with the help of AI coding agents, following good engineering practices: every change is reviewed, and each release is tested on real RG DS and RG DS Plus consoles before it is published.
+
+Even so, as with any software, it may have bugs or behave unexpectedly on your setup. It is provided "as is", without warranty of any kind (see `LICENSE`). Use it at your own risk.
 
 ## License
 
@@ -40,14 +44,22 @@ El enlace sigue activo al salir de la app y al cambiar de juego. Disconnect devu
 
 La red es abierta. El wpa_supplicant de BananaOS no trae ad hoc cifrado (IBSS RSN), así que cualquiera al alcance puede unirse. Es un enlace local, no una red privada.
 
-Este árbol todavía no se probó en una consola.
-
 ## Instalación
 
 El zip trae `direct-link/`, `Direct Link.sh` e `INSTALL.txt`. Copia la carpeta a `store/apps/` y el tile a `store/tiles/`. No reemplaces `store`. Reinicia una vez y abre Apps. Los pasos completos están en `INSTALL.txt`.
 
-Equipos: Anbernic RG DS y RG DS Plus, BananaOS 0.5.0.1.
+Equipos: Anbernic RG DS y RG DS Plus, BananaOS 0.5.2.2 (también funciona en 0.5.0.1).
 
 ## Desinstalar
 
 En la app, Y y luego A. Eso desconecta y borra `store/apps/direct-link` y `store/tiles/Direct Link.sh`.
+
+## Hecho con agentes de IA
+
+Direct Link es un proyecto de código abierto hecho con ayuda de agentes de programación con IA, siguiendo buenas prácticas: cada cambio se revisa y cada versión se prueba en consolas RG DS y RG DS Plus reales antes de publicarse.
+
+Aun así, como todo software, puede tener errores o comportarse de forma inesperada en tu equipo. Se entrega "tal cual", sin garantía de ningún tipo (ver `LICENSE`). Úsalo bajo tu propia responsabilidad.
+
+## Licencia
+
+MIT. `app/wifi-link` está adaptado de BananaLinux. Ver `LICENSE` y `NOTICE`.

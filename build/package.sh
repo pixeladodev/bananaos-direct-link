@@ -34,12 +34,12 @@ else
     exit 1
 fi
 
-cp "$ROOT/app/wifi-link" "$ROOT/app/host.sh" "$ROOT/app/join.sh" "$ROOT/app/down.sh" \
+cp "$ROOT/app/wifi-link" "$ROOT/app/wifi-guard.sh" "$ROOT/app/host.sh" "$ROOT/app/join.sh" "$ROOT/app/down.sh" \
     "$ROOT/app/status.sh" "$ROOT/app/tile.sh" "$ROOT/app/uninstall.sh" "$ROOT/app/fix-nest.sh" \
     "$ROOT/app/app.json" "$ROOT/app/manifest" "$APP/"
 cp "$ROOT/tiles/Direct Link.sh" "$STAGE/Direct Link.sh"
 cp "$ROOT/INSTALL.txt" "$STAGE/INSTALL.txt"
-chmod 755 "$APP/ui/direct-link" "$APP/wifi-link" "$APP/host.sh" "$APP/join.sh" "$APP/down.sh" \
+chmod 755 "$APP/ui/direct-link" "$APP/wifi-link" "$APP/wifi-guard.sh" "$APP/host.sh" "$APP/join.sh" "$APP/down.sh" \
     "$APP/status.sh" "$APP/tile.sh" "$APP/uninstall.sh" "$APP/fix-nest.sh" \
     "$STAGE/Direct Link.sh"
 
