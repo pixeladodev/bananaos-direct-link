@@ -4,21 +4,23 @@
 
 #include "pixel.h"
 
-enum { V_MAIN, V_UNINSTALL, V_NEST, V_NEST_OK, V_DISC };
+enum { V_MAIN, V_UNINSTALL, V_NEST, V_NEST_OK, V_DISC, V_ABOUT };
 enum { ROW_MODE, ROW_ROLE, ROW_STATUS, ROW_IP, ROW_PEER, ROW_COUNT };
 /* how the two consoles are linked: only Wi-Fi works today */
 enum { MODE_WIFI, MODE_ADAPTER, MODE_USB, MODE_COUNT };
 enum { JOB_NONE, JOB_HOST, JOB_JOIN, JOB_DOWN };
 /* what a touch on the bottom panel does */
-enum { HIT_NONE, HIT_ROW, HIT_MODE, HIT_ROLE, HIT_BACK, HIT_OK, HIT_Y };
+enum { HIT_NONE, HIT_ROW, HIT_MODE, HIT_ROLE, HIT_BACK, HIT_OK, HIT_Y, HIT_SELECT };
 
 typedef struct {
     char state[32], role[16], ip[32], home[8], version[32];
+    char phase[16];              /* wifi-link's phase: up, joining, starting, lost (a guest that can't hear the host) */
     char peer[48];               /* the other console's address, when it is known */
+    int lost;                    /* a guest whose host stopped answering (wifi-link looks for it again) */
     int radio;                   /* wlan0 is there */
     int linked;
     int job, dots;               /* the script running, and its "..." (0-2) */
-    int mode, role_sel;          /* the mode shown; 0 host, 1 join */
+    int mode, role_sel;          /* the mode shown; 0 host, 1 guest */
     int view, cursor;
     char err[240];
     int battery, charging;

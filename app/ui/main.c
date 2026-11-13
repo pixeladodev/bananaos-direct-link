@@ -361,8 +361,8 @@ static void peer_ip(Model *m)
         }
         fclose(f);
     }
-    /* a guest knows where the host is */
-    if (!m->peer[0] && !strcmp(m->role, "join")) copy_str(m->peer, sizeof m->peer, "10.42.0.1");
+    /* a guest knows where the host is, while wifi-link hears it */
+    if (!strcmp(m->role, "join")) copy_str(m->peer, sizeof m->peer, m->lost ? "" : "10.42.0.1");
 }
 
 /* what status.sh says (wifi-link's state, role, ip, home_wifi; the version) */
@@ -370,7 +370,7 @@ static void load_link(Model *m)
 {
     char cmd[640], line[512];
     FILE *f;
-    m->state[0] = m->role[0] = m->ip[0] = m->home[0] = 0;
+    m->state[0] = m->role[0] = m->ip[0] = m->home[0] = m->phase[0] = 0;
     snprintf(m->state, sizeof m->state, "down");
     snprintf(cmd, sizeof cmd, "sh '%s/status.sh' 2>/dev/null", g_app);
     f = popen(cmd, "r");
@@ -382,6 +382,7 @@ static void load_link(Model *m)
             kv(line, "role", m->role, (int)sizeof m->role);
             kv(line, "ip", m->ip, (int)sizeof m->ip);
             kv(line, "home_wifi", m->home, (int)sizeof m->home);
+            kv(line, "phase", m->phase, (int)sizeof m->phase);
             kv(line, "version", m->version, (int)sizeof m->version);
         }
         pclose(f);
@@ -390,6 +391,8 @@ static void load_link(Model *m)
     m->job = g_job;
     m->linked = linked_now(m);
     if (m->linked) m->mode = MODE_WIFI;           /* the link that is up is a Wi-Fi one */
+    /* a guest whose host stopped answering: wifi-link looks for it again, then gives up (phase=lost) */
+    m->lost = m->linked && !strcmp(m->role, "join") && !strcmp(m->phase, "lost");
     peer_ip(m);
 }
 
@@ -461,7 +464,7 @@ typedef struct {
     int x, y, down, was;
 } Dev;
 
-enum { ACT_NONE, ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_OK, ACT_BACK, ACT_Y, ACT_QUIT, ACT_ROW, ACT_MODE };
+enum { ACT_NONE, ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_OK, ACT_BACK, ACT_Y, ACT_QUIT, ACT_ROW, ACT_MODE, ACT_ABOUT };
 
 /* Nintendo layout: A is the east button, B the south one, Y the west one */
 static int key_action(int code, int value)
@@ -476,6 +479,7 @@ static int key_action(int code, int value)
     case BTN_WEST: return ACT_Y;
     case BTN_SOUTH: case KEY_BACKSPACE: case KEY_ESC: return ACT_BACK;
     case BTN_START: return ACT_QUIT;
+    case BTN_SELECT: return ACT_ABOUT;
     default: return ACT_NONE;
     }
 }
@@ -501,6 +505,7 @@ static int touch_action(int hx, int hy, int *arg)
         case HIT_BACK: act = ACT_BACK; break;
         case HIT_OK: act = ACT_OK; break;
         case HIT_Y: act = ACT_Y; break;
+        case HIT_SELECT: act = ACT_ABOUT; break;
         default: break;
         }
     }
@@ -552,6 +557,10 @@ static void handle(int act, int arg, Model *m)
         return;
     }
     if (m->view == V_NEST_OK) { if (act == ACT_OK || act == ACT_BACK) g_stop = 1; return; }
+    if (m->view == V_ABOUT) {
+        if (act == ACT_BACK || act == ACT_ABOUT || act == ACT_OK) m->view = V_MAIN;
+        return;
+    }
     if (m->view == V_UNINSTALL) {
         if (act == ACT_OK) {
             if (run_sh("uninstall.sh", m->err, (int)sizeof m->err)) g_stop = 1;
@@ -566,6 +575,7 @@ static void handle(int act, int arg, Model *m)
     }
     switch (act) {
     case ACT_BACK: g_stop = 1; return;
+    case ACT_ABOUT: m->view = V_ABOUT; return;
     case ACT_UP: if (m->cursor > 0) m->cursor--; return;
     case ACT_DOWN: if (m->cursor < ROW_COUNT - 1) m->cursor++; return;
     case ACT_Y:
@@ -664,7 +674,7 @@ int main(void)
         m.dots = dots < 0 ? 0 : dots;
         if (dirty) draw(&m);
         dirty = 0;
-        r = poll(pf, (nfds_t)nf, g_child > 0 ? 400 : 1000);
+        r = poll(pf, (nfds_t)nf, g_child > 0 || m.lost ? 400 : 1000);
         if (r < 0) { if (errno == EINTR) continue; break; }
         if (g_pipe >= 0 && nf > 0 && (pf[nf - 1].revents & POLLIN)) drain_job();
         for (i = 0; i < ndev; i++) {
@@ -705,17 +715,21 @@ int main(void)
             if (g_job != JOB_NONE) load_link(&m);
             dirty = 1;
         }
-        now_dots = g_child > 0 ? (ticks() / 400) % 3 : -1;
-        if (g_child > 0 && now_dots != dots) {
+        now_dots = g_child > 0 || m.lost ? (ticks() / 400) % 3 : -1;
+        if (now_dots != dots) {
             dots = now_dots;
-            load_link(&m);
+            if (g_child > 0) load_link(&m);
             dirty = 1;
         }
         if (g_child <= 0 && r == 0) {
             Model n = m;
             load_link(&n);
             if (strcmp(n.state, m.state) || strcmp(n.role, m.role) || strcmp(n.ip, m.ip) || strcmp(n.home, m.home) ||
-                strcmp(n.peer, m.peer) || n.radio != m.radio || n.linked != m.linked) {
+                strcmp(n.peer, m.peer) || n.radio != m.radio || n.linked != m.linked || n.lost != m.lost) {
+                /* the link went down without us: a guest whose host left (wifi-link gave up and restored) */
+                if (m.linked && !n.linked && !strcmp(m.role, "join"))
+                    snprintf(n.err, sizeof n.err, "%s%s%s", px_tr("The host closed the link."),
+                             !strcmp(m.home, "on") ? " " : "", !strcmp(m.home, "on") ? px_tr("Home Wi-Fi is back.") : "");
                 m = n;
                 dirty = 1;
             }

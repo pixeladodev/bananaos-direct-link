@@ -22,6 +22,26 @@ const PxTr view_tr[] = {
     { "Host", "Anfitrión" },
     { "Join", "Unirse" },
     { "Guest", "Invitado" },
+    { "Searching", "Buscando" },
+    { "Host lost", "Sin anfitrión" },
+    { "The host stopped answering. Looking for it again",
+      "El anfitrión dejó de responder. Buscándolo de nuevo" },
+    { "If it doesn't come back in a minute, the link closes and home Wi-Fi returns.",
+      "Si no vuelve en un minuto, el enlace se cierra y vuelve el Wi-Fi de casa." },
+    { "If it doesn't come back in a minute, the link closes.",
+      "Si no vuelve en un minuto, el enlace se cierra." },
+    { "The host closed the link.", "El anfitrión cerró el enlace." },
+    { "Home Wi-Fi is back.", "Volvió el Wi-Fi de casa." },
+    { "About", "Acerca de" },
+    { "Made by", "Hecha por" },
+    { "Source code", "Código fuente" },
+    { "Credits", "Créditos" },
+    { "Two consoles play together over their own Wi-Fi, no router needed: RetroArch, PPSSPP and BananaDS netplay on BananaOS.",
+      "Dos consolas juegan juntas por su propio Wi-Fi, sin router: el juego en red de RetroArch, PPSSPP y BananaDS en BananaOS." },
+    { "BananaOS and BananaLinux by JorreFog and the Banana contributors (MIT); wifi-link is adapted from BananaLinux. Pixelify Sans (OFL).",
+      "BananaOS y BananaLinux, de JorreFog y los colaboradores de Banana (MIT); wifi-link está adaptado de BananaLinux. Pixelify Sans (OFL)." },
+    { "An independent app, not part of BananaOS. Built and tested on the RG DS and the RG DS Plus. Free software under the MIT license.",
+      "Una app independiente, no es parte de BananaOS. Hecha y probada en la RG DS y la RG DS Plus. Software libre bajo la licencia MIT." },
     { "Off", "Apagado" },
     { "Exit", "Salir" },
     { "Connect", "Conectar" },
@@ -45,8 +65,8 @@ const PxTr view_tr[] = {
     { "Joining the link", "Uniéndose al enlace" },
     { "Restoring Wi-Fi", "Restaurando el Wi-Fi" },
     { "Closing the link", "Cerrando el enlace" },
-    { "Two consoles on their own Wi-Fi, no router. Host on one, Join on the other.",
-      "Dos consolas en su propio Wi-Fi, sin router. Anfitrión en una, Unirse en la otra." },
+    { "Two consoles on their own Wi-Fi, no router. Host on one, Guest on the other.",
+      "Dos consolas en su propio Wi-Fi, sin router. Anfitrión en una, Invitado en la otra." },
     { "Coming soon: a USB-C Ethernet adapter on each console, joined by a network cable.",
       "Próximamente: un adaptador USB-C a Ethernet en cada consola, unidos por un cable de red." },
     { "Needs a BananaOS with USB link: the OTG port of one console to the DC/USB port of the other.",
@@ -99,20 +119,21 @@ static void add_face_hit(PxRect r, int id)
     g_nhits++;
 }
 
-static const char *dots(const Model *m)
+static int ndots(const Model *m)
 {
-    return m->dots == 0 ? "." : m->dots == 1 ? ".." : "...";
+    return m->dots + 1;
 }
 
-/* the status, in a word or two */
-static void status_word(const Model *m, char *buf, size_t n)
+/* the status, in a word or two; returns the dots it ends in (-1: none) */
+static int status_word(const Model *m, char *buf, size_t n)
 {
-    if (m->job == JOB_HOST) snprintf(buf, n, "%s%s", T("Starting"), dots(m));
-    else if (m->job == JOB_JOIN) snprintf(buf, n, "%s%s", T("Joining"), dots(m));
-    else if (m->job == JOB_DOWN) snprintf(buf, n, "%s%s", T("Closing"), dots(m));
-    else if (!m->linked) snprintf(buf, n, "%s", T("Off"));
-    else if (!strcmp(m->role, "join")) snprintf(buf, n, "%s", T("Guest"));
-    else snprintf(buf, n, "%s", T("Host"));
+    if (m->job == JOB_HOST) { snprintf(buf, n, "%s", T("Starting")); return ndots(m); }
+    if (m->job == JOB_JOIN) { snprintf(buf, n, "%s", T("Joining")); return ndots(m); }
+    if (m->job == JOB_DOWN) { snprintf(buf, n, "%s", T("Closing")); return ndots(m); }
+    if (!m->linked) { snprintf(buf, n, "%s", T("Off")); return -1; }
+    if (m->lost) { snprintf(buf, n, "%s", T("Searching")); return ndots(m); }
+    snprintf(buf, n, "%s", !strcmp(m->role, "join") ? T("Guest") : T("Host"));
+    return -1;
 }
 
 /* ---- the drawings ---------------------------------------------------------------------------------------- */
@@ -172,12 +193,12 @@ static void diagram(PxCanvas *c, const Model *m)
     const float y = 168, lx = 90, rx = 430;
     int live = m->linked;
     uint32_t wire = view_mode_works(m->mode) ? px.accent.base : px.muted;
-    console(c, lx, y, live);
+    console(c, lx, y, live && !(m->lost && !strcmp(m->role, "join")));
     console(c, rx, y, live);
     if (m->mode == MODE_WIFI) {
         waves(c, lx + 132, y + 50, 1, wire);
         waves(c, rx - 12, y + 50, -1, wire);
-        tag(c, lx + 60, y + 118, "10.42.0.1", live && strcmp(m->role, "join"));
+        tag(c, lx + 60, y + 118, "10.42.0.1", live && !m->lost && strcmp(m->role, "join"));
         tag(c, rx + 60, y + 118, "10.42.0.2-9", live && !strcmp(m->role, "join"));
     } else if (m->mode == MODE_ADAPTER) {
         /* each console: a USB-C to Ethernet adapter; a network cable between them */
@@ -218,15 +239,21 @@ void view_top(PxCanvas *c, const Model *m)
     px_sheet(c, 18, 60, 604, 406);
     px_label(c, 44, 84, T("Mode"), px.ink);
     hw = px_text(c, PX_MEDIUM, 40, 42, 102, T(MODE_NAMES[m->mode]), px.ink, 0);
-    if (view_mode_works(m->mode)) status_word(m, buf, sizeof buf);
-    else snprintf(buf, sizeof buf, "%s", m->mode == MODE_ADAPTER ? T("Coming soon") : T("Needs BananaOS support"));
-    cw = px_text_w(c, PX_MEDIUM, 16, buf, PX_UPPER | PX_TRACK) + 24;
-    if (42 + hw + 20 + cw > 598) cw = 598 - (42 + hw + 20);
-    px_chip(c, 42 + hw + 20, 112, cw, 30, view_mode_works(m->mode) && (m->linked || m->job != JOB_NONE));
-    px_text_fit(c, PX_MEDIUM, 16, 42 + hw + 32, 117, buf,
-                view_mode_works(m->mode) && (m->linked || m->job != JOB_NONE) ? px_ink_on(px.accent.base)
-                : view_mode_works(m->mode) ? px.ink : px.muted,
-                PX_UPPER | PX_TRACK, cw - 22, PX_LEFT);
+    if (view_mode_works(m->mode)) {
+        /* the state, big: green linked, grey off, the accent on its way (or looking for a lost host) */
+        int d = status_word(m, buf, sizeof buf);
+        int kind = m->job != JOB_NONE || m->lost ? PX_BADGE_BUSY : m->linked ? PX_BADGE_ON : PX_BADGE_OFF;
+        float bh = 46;
+        if (42 + hw + 20 + px_badge_w(c, bh, buf) + (d >= 0 ? px_text_w(c, PX_MEDIUM, bh / 2, "...", PX_TRACK) : 0) > 598)
+            bh = 38;
+        px_badge_dots(c, 42 + hw + 20, 104 + (46 - bh) / 2, bh, buf, d, kind);
+    } else {
+        snprintf(buf, sizeof buf, "%s", m->mode == MODE_ADAPTER ? T("Coming soon") : T("Needs BananaOS support"));
+        cw = px_text_w(c, PX_MEDIUM, 15, buf, PX_UPPER | PX_TRACK) + 24;
+        if (42 + hw + 20 + cw > 598) cw = 598 - (42 + hw + 20);
+        px_chip(c, 42 + hw + 20, 112, cw, 30, 0);
+        px_text_fit(c, PX_MEDIUM, 15, 42 + hw + 32, 117, buf, px.muted, PX_UPPER | PX_TRACK, cw - 22, PX_LEFT);
+    }
     px_line_h(c, 42, 156, 556, 2, px.edge, 70);
     diagram(c, m);
     px_line_h(c, 42, 326, 556, 2, px.edge, 70);
@@ -242,23 +269,29 @@ void view_top(PxCanvas *c, const Model *m)
         rgb[n++] = px.muted;
     } else if (m->job == JOB_HOST || m->job == JOB_JOIN) {
         if (!strcmp(m->home, "on")) { lines[n] = T("Home Wi-Fi will disconnect."); rgb[n++] = px.muted; }
-        snprintf(buf, sizeof buf, "%s%s", m->job == JOB_HOST ? T("Starting the link") : T("Joining the link"), dots(m));
+        snprintf(buf, sizeof buf, "%s%.*s", m->job == JOB_HOST ? T("Starting the link") : T("Joining the link"), ndots(m), "...");
         lines[n] = buf;
         rgb[n++] = px.ink;
     } else if (m->job == JOB_DOWN) {
-        snprintf(buf, sizeof buf, "%s%s", !strcmp(m->home, "on") ? T("Restoring Wi-Fi") : T("Closing the link"), dots(m));
+        snprintf(buf, sizeof buf, "%s%.*s", !strcmp(m->home, "on") ? T("Restoring Wi-Fi") : T("Closing the link"), ndots(m), "...");
         lines[n] = buf;
         rgb[n++] = px.ink;
+    } else if (m->linked && m->lost) {
+        snprintf(buf, sizeof buf, "%s%.*s", T("The host stopped answering. Looking for it again"), ndots(m), "...");
+        lines[n] = buf; rgb[n++] = px.ink;
+        lines[n] = !strcmp(m->home, "on") ? T("If it doesn't come back in a minute, the link closes and home Wi-Fi returns.")
+                                          : T("If it doesn't come back in a minute, the link closes.");
+        rgb[n++] = px.muted;
     } else if (m->linked) {
         lines[n] = T("Don't change Wi-Fi in Settings."); rgb[n++] = px.ink;
         lines[n] = T("Connect from RetroArch, PPSSPP, or BananaDS."); rgb[n++] = px.muted;
     } else if (!m->radio) {
         lines[n] = T("No Wi-Fi radio."); rgb[n++] = px.warn;
     } else {
-        lines[n] = T("Two consoles on their own Wi-Fi, no router. Host on one, Join on the other.");
+        lines[n] = T("Two consoles on their own Wi-Fi, no router. Host on one, Guest on the other.");
         rgb[n++] = px.ink;
     }
-    if (m->err[0] && m->job == JOB_NONE && m->mode == MODE_WIFI && n < 4) { lines[n] = m->err; rgb[n++] = px.warn; }
+    if (m->err[0] && m->job == JOB_NONE && m->mode == MODE_WIFI && n < 4) { lines[n] = m->err; rgb[n++] = m->linked ? px.warn : px.ink; }
     y = 338;
     for (i = 0; i < n && y < 440; i++)
         y += 24 * px_text_wrap(c, PX_REGULAR, 18, 42, y, lines[i], rgb[i], 556, 2, 24) + 4;
@@ -309,23 +342,27 @@ static void row(PxCanvas *c, const Model *m, int i, float y)
     case ROW_ROLE: {
         int locked = m->linked || m->job != JOB_NONE;
         int join = m->linked ? !strcmp(m->role, "join") : m->role_sel;
-        const char *v = join ? T("Join") : T("Host");
+        const char *v = join ? T("Guest") : T("Host");
         px_value_arrows(c, 584, y + 15, 20, v, view_mode_works(m->mode) ? ink : sub, !locked, !locked);
         break;
     }
-    case ROW_STATUS:
-        status_word(m, buf, sizeof buf);
-        px_text_fit(c, PX_MEDIUM, 20, 584, y + 15, buf, m->linked ? ink : sub, 0, 300, PX_RIGHT);
+    case ROW_STATUS: {
+        int d = status_word(m, buf, sizeof buf);
+        if (d >= 0) px_text_dots(c, PX_MEDIUM, 20, 584, y + 15, buf, d, ink, 0, PX_RIGHT);
+        else px_text_fit(c, PX_MEDIUM, 20, 584, y + 15, buf, m->linked ? ink : sub, 0, 300, PX_RIGHT);
         break;
+    }
     case ROW_IP:
         px_text_fit(c, PX_MEDIUM, 20, 584, y + 15, m->linked && m->ip[0] ? m->ip : "-", m->linked ? ink : sub, 0,
                     300, PX_RIGHT);
         break;
     default:
         if (!m->linked) snprintf(buf, sizeof buf, "-");
+        else if (m->lost) snprintf(buf, sizeof buf, "%s", T("Host lost"));
         else if (m->peer[0]) snprintf(buf, sizeof buf, "%s", m->peer);
         else snprintf(buf, sizeof buf, "%s%s", T("Waiting"), "...");
-        px_text_fit(c, PX_MEDIUM, 20, 584, y + 15, buf, m->linked && m->peer[0] ? ink : sub, 0, 300, PX_RIGHT);
+        px_text_fit(c, PX_MEDIUM, 20, 584, y + 15, buf, m->linked && m->peer[0] && !m->lost ? ink : sub, 0, 300,
+                    PX_RIGHT);
         break;
     }
 }
@@ -337,6 +374,42 @@ static void dialog(PxCanvas *c, const char *title, const char *sub, const char *
     px_text_wrap(c, PX_MEDIUM, 26, 76, 146, title, px.ink, 488, 2, 32);
     if (mono) px_text_fit(c, PX_REGULAR, 18, 76, 222, mono, px.muted, 0, 488, PX_LEFT);
     if (sub && sub[0]) px_text_wrap(c, PX_REGULAR, 18, 76, mono ? 252 : 222, sub, px.muted, 488, 3, 25);
+}
+
+/* SELECT: who made it, where its source is, what it is built on */
+static void view_about(PxCanvas *c, const Model *m)
+{
+    char buf[96];
+    PxRect r;
+    float y;
+    g_nhits = 0;
+    px_screen(c);
+    px_bubble(c, 18, 14, 604, 54, 0);
+    px_text_fit(c, PX_MEDIUM, 26, 38, 25, T("About"), px.ink, 0, 440, PX_LEFT);
+    px_card(c, 18, 82, 604, 326, 0, 0);
+    px_text(c, PX_MEDIUM, 28, 40, 98, "Direct Link", px.ink, 0);
+    snprintf(buf, sizeof buf, "v%s", m->version[0] ? m->version : "?");
+    px_text_fit(c, PX_MEDIUM, 20, 600, 104, buf, px.muted, 0, 160, PX_RIGHT);
+    y = 138;
+    y += 25 * px_text_wrap(c, PX_REGULAR, 18, 40, y,
+                           T("Two consoles play together over their own Wi-Fi, no router needed: RetroArch, PPSSPP and BananaDS netplay on BananaOS."),
+                           px.ink, 560, 3, 25) + 10;
+    px_label(c, 40, y + 4, T("Made by"), px.muted);
+    px_text(c, PX_MEDIUM, 18, 200, y, "Pixelado Dev", px.ink, 0);
+    y += 26;
+    px_label(c, 40, y + 4, T("Source code"), px.muted);
+    px_text_fit(c, PX_MEDIUM, 18, 200, y, "github.com/pixeladodev/bananaos-direct-link", px.ink, 0, 400, PX_LEFT);
+    y += 32;
+    px_label(c, 40, y, T("Credits"), px.muted);
+    y += 20;
+    y += 23 * px_text_wrap(c, PX_REGULAR, 16, 40, y,
+                           T("BananaOS and BananaLinux by JorreFog and the Banana contributors (MIT); wifi-link is adapted from BananaLinux. Pixelify Sans (OFL)."),
+                           px.muted, 560, 3, 23) + 6;
+    px_text_wrap(c, PX_REGULAR, 16, 40, y,
+                 T("An independent app, not part of BananaOS. Built and tested on the RG DS and the RG DS Plus. Free software under the MIT license."),
+                 px.muted, 560, 3, 23);
+    px_face(c, 18, 422, PX_LEFT, "B", T("Back"), 0, &r);
+    add_face_hit(r, HIT_BACK);
 }
 
 void view_bottom(PxCanvas *c, const Model *m)
@@ -354,17 +427,25 @@ void view_bottom(PxCanvas *c, const Model *m)
     px_rail(c, 615, 80, 310, m->cursor, 1, ROW_COUNT);
 
     if (m->view == V_MAIN) {
-        px_face(c, 18, 422, PX_LEFT, "B", T("Exit"), busy, &r);
-        add_face_hit(r, HIT_BACK);
+        PxFace f[4];
+        PxRect hr[4];
+        int ids[4], n = 0, i;
+        f[n].key = "B"; f[n].label = T("Exit"); f[n].dis = busy; ids[n++] = HIT_BACK;
+        f[n].key = "SELECT"; f[n].label = T("About"); f[n].dis = 0; ids[n++] = HIT_SELECT;
         if (m->linked) {
-            px_face(c, 622, 422, PX_RIGHT, "Y", T("Disconnect"), busy, &r);
-            add_face_hit(r, HIT_Y);
+            f[n].key = "Y"; f[n].label = T("Disconnect"); f[n].dis = busy; ids[n++] = HIT_Y;
         } else {
-            px_face(c, 320, 422, PX_CENTER, "Y", T("Uninstall"), busy, &r);
-            add_face_hit(r, HIT_Y);
-            px_face(c, 622, 422, PX_RIGHT, "A", T("Connect"), !view_can_connect(m), &r);
-            add_face_hit(r, HIT_OK);
+            f[n].key = "Y"; f[n].label = T("Uninstall"); f[n].dis = busy; ids[n++] = HIT_Y;
+            /* a guest joins; a host connects */
+            f[n].key = "A"; f[n].label = m->role_sel ? T("Join") : T("Connect"); f[n].dis = !view_can_connect(m);
+            ids[n++] = HIT_OK;
         }
+        px_faces(c, 422, n, 2, f, hr);
+        for (i = 0; i < n; i++) add_face_hit(hr[i], ids[i]);
+        return;
+    }
+    if (m->view == V_ABOUT) {
+        view_about(c, m);
         return;
     }
     g_nhits = 0;

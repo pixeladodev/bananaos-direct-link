@@ -8,7 +8,8 @@ case $APP in
 esac
 sh "$APP/wifi-link" down || true
 rm -f "/data/store/tiles/Direct Link.sh" "/data/store/tiles/._Direct Link.sh" \
-    "/data/store/tiles/.DS_Store"
+    "/data/store/tiles/.DS_Store" "/data/store/tiles/media/box/Direct Link.png"
+rmdir /data/store/tiles/media/box /data/store/tiles/media 2>/dev/null || true
 cd /
 rm -rf "$APP"
 rm -f "/data/store/apps/._direct-link" "/data/store/apps/.DS_Store"

@@ -51,7 +51,8 @@ static int shot(const char *dir, const char *name, int w, int h, const char *the
     for (i = 0; i < w * gap; i++) buf[(size_t)w * (size_t)h + (size_t)i] = 0x000000;
     view_top(&top, m);
     view_bottom(&bot, m);
-    snprintf(path, sizeof path, "%s/direct-link-%s-%dx%d-%s%s%s.png", dir, name, w, h, theme,
+    snprintf(path, sizeof path, "%s/direct-link-%s-%dx%d-%s%s%s.png", dir, name, w, h,
+             strncmp(theme, "user:", 5) ? theme : theme + 5,
              strcmp(lang, "en") ? "-" : "", strcmp(lang, "en") ? lang : "");
     ok = px_png_write(path, buf, w, h * 2 + gap);
     if (ok) printf("%s\n", path);
@@ -90,6 +91,35 @@ int main(int argc, char **argv)
     m = linked();
     m.view = V_DISC;
     ok &= shot(dir, "disconnect", 640, 480, "dark", "yellow", "es", &m);
+    /* a guest, linked; then its host gone quiet (wifi-link looking for it again) */
+    m = linked();
+    snprintf(m.role, sizeof m.role, "join");
+    snprintf(m.ip, sizeof m.ip, "10.42.0.2");
+    snprintf(m.peer, sizeof m.peer, "10.42.0.1");
+    m.role_sel = 1;
+    m.cursor = ROW_PEER;
+    ok &= shot(dir, "guest", 640, 480, "dark", "yellow", "es", &m);
+    m.lost = 1;
+    m.peer[0] = 0;
+    m.dots = 1;
+    ok &= shot(dir, "host-lost", 640, 480, "dark", "yellow", "es", &m);
+    ok &= shot(dir, "host-lost", 1024, 768, "light", "yellow", "en", &m);
+    /* the link closed by wifi-link after that */
+    m = base();
+    m.role_sel = 1;
+    snprintf(m.err, sizeof m.err, "El anfitrión cerró el enlace. Volvió el Wi-Fi de casa.");
+    ok &= shot(dir, "host-left", 640, 480, "dark", "yellow", "es", &m);
+    m = base();
+    m.view = V_ABOUT;
+    ok &= shot(dir, "about", 640, 480, "dark", "yellow", "es", &m);
+    ok &= shot(dir, "about", 1024, 768, "light", "yellow", "en", &m);
+    /* BananaOS's own themes */
+    m = linked();
+    ok &= shot(dir, "linked", 640, 480, "user:sakura", "yellow", "es", &m);
+    ok &= shot(dir, "linked", 640, 480, "user:paper-notebook", "yellow", "en", &m);
+    m = base();
+    ok &= shot(dir, "wifi", 640, 480, "user:comic-panel", "yellow", "en", &m);
+    ok &= shot(dir, "wifi", 640, 480, "user:neon-arcade", "yellow", "es", &m);
     px_fonts_free();
     return ok ? 0 : 1;
 }
