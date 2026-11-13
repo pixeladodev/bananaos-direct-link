@@ -93,4 +93,12 @@ printf '%s\n' "$alive" > "$T/run/wpa.pid"
 BANANA_LINK_DIR=$T/run sh "$ROOT/app/wifi-guard.sh" down
 grep -qx down "$T/called" || bad "guard blocked down after the link"
 
+# the app's updater, against a fake GitHub on localhost
+sh -n "$ROOT/app/can-update.sh" || bad "syntax can-update.sh"
+if command -v python3 >/dev/null 2>&1; then
+    python3 "$ROOT/build/update-selftest.py" >/dev/null || bad "updater"
+else
+    echo "selftest: no python3, the updater is not checked"
+fi
+
 [ "$fail" = 0 ] && echo "selftest ok" || { echo "selftest failed"; exit 1; }

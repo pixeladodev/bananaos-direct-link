@@ -16,6 +16,10 @@ Devices: Anbernic RG DS and RG DS Plus, BananaOS 0.5.2.2 (also works on 0.5.0.1)
 
 In the app, Y, then A. That disconnects and deletes `store/apps/direct-link` and `store/tiles/Direct Link.sh`.
 
+## Updates
+
+The app looks for a newer release on GitHub each time it opens; the **Updates** row says what it found, and A installs it: the zip is checked against the SHA-256 GitHub lists for it and installed the way the Store does (a new folder beside the old one, then a swap), so a failed download changes nothing. Not while a link is up. `app/update.py` does the work; `build/update-selftest.py` checks it against a fake GitHub on localhost.
+
 ## Settings
 
 `/data/banana/direct-link.conf` is optional. It is read, never executed. One `KEY=value` per line: `CHANNEL` (1–11), `FREQ` (MHz, wins over `CHANNEL`), `SSID`, `BSSID`, `MAX` (seconds; `0` means until Disconnect).
@@ -49,6 +53,10 @@ La red es abierta. El wpa_supplicant de BananaOS no trae ad hoc cifrado (IBSS RS
 El zip trae `direct-link/`, `Direct Link.sh` e `INSTALL.txt`. Copia la carpeta a `store/apps/` y el tile a `store/tiles/`. No reemplaces `store`. Reinicia una vez y abre Apps. Los pasos completos están en `INSTALL.txt`.
 
 Equipos: Anbernic RG DS y RG DS Plus, BananaOS 0.5.2.2 (también funciona en 0.5.0.1).
+
+## Actualizaciones
+
+La app busca una versión nueva en GitHub cada vez que se abre; la fila **Actualizaciones** dice lo que encontró y A la instala: el zip se verifica con el SHA-256 que GitHub publica y se instala como lo hace la Store (una carpeta nueva junto a la anterior y luego un cambio de nombre), así que una descarga fallida no cambia nada. No mientras haya un enlace activo.
 
 ## Desinstalar
 

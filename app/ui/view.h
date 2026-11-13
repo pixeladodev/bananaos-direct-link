@@ -3,9 +3,10 @@
 #define VIEW_H
 
 #include "pixel.h"
+#include "updater.h"
 
-enum { V_MAIN, V_UNINSTALL, V_NEST, V_NEST_OK, V_DISC, V_ABOUT };
-enum { ROW_MODE, ROW_ROLE, ROW_STATUS, ROW_IP, ROW_PEER, ROW_COUNT };
+enum { V_MAIN, V_UNINSTALL, V_NEST, V_NEST_OK, V_DISC, V_ABOUT, V_UPDATE, V_UPDATED };
+enum { ROW_MODE, ROW_ROLE, ROW_STATUS, ROW_IP, ROW_PEER, ROW_UPDATES, ROW_COUNT };
 /* how the two consoles are linked: only Wi-Fi works today */
 enum { MODE_WIFI, MODE_ADAPTER, MODE_USB, MODE_COUNT };
 enum { JOB_NONE, JOB_HOST, JOB_JOIN, JOB_DOWN };
@@ -22,6 +23,7 @@ typedef struct {
     int job, dots;               /* the script running, and its "..." (0-2) */
     int mode, role_sel;          /* the mode shown; 0 host, 1 guest */
     int view, cursor;
+    PxUpdate upd;                /* the Updates row: update.py's last word */
     char err[240];
     int battery, charging;
     char clock[16];

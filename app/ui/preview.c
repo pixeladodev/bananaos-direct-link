@@ -17,6 +17,9 @@ static Model base(void)
     m.radio = 1;
     m.battery = 64;
     snprintf(m.clock, sizeof m.clock, "14:30");
+    m.upd.state = UPD_UPTODATE;
+    snprintf(m.upd.current, sizeof m.upd.current, "0.1.0");
+    snprintf(m.upd.latest, sizeof m.upd.latest, "0.1.0");
     return m;
 }
 
@@ -46,6 +49,7 @@ static int shot(const char *dir, const char *name, int w, int h, const char *the
     snprintf(st.accent, sizeof st.accent, "%s", accent);
     px_pal_make(&px, &st);
     px_lang_set(lang, view_tr);
+    px_lang_add(upd_tr);
     px_canvas(&top, buf, w, h);
     px_canvas(&bot, buf + (size_t)w * (size_t)(h + gap), w, h);
     for (i = 0; i < w * gap; i++) buf[(size_t)w * (size_t)h + (size_t)i] = 0x000000;
@@ -120,6 +124,31 @@ int main(int argc, char **argv)
     m = base();
     ok &= shot(dir, "wifi", 640, 480, "user:comic-panel", "yellow", "en", &m);
     ok &= shot(dir, "wifi", 640, 480, "user:neon-arcade", "yellow", "es", &m);
+    /* the updater */
+    m = base();
+    m.cursor = ROW_UPDATES;
+    ok &= shot(dir, "update-uptodate", 640, 480, "dark", "yellow", "es", &m);
+    m.upd.state = UPD_AVAILABLE;
+    snprintf(m.upd.latest, sizeof m.upd.latest, "0.2.0");
+    ok &= shot(dir, "update-available", 640, 480, "light", "yellow", "en", &m);
+    ok &= shot(dir, "update-available", 1024, 768, "dark", "yellow", "es", &m);
+    m.view = V_UPDATE;
+    ok &= shot(dir, "update-confirm", 640, 480, "dark", "yellow", "es", &m);
+    m.view = V_MAIN;
+    m.upd.state = UPD_DOWNLOADING;
+    m.upd.installing = 1;
+    m.upd.pid = 1;
+    m.upd.pct = 73;
+    ok &= shot(dir, "update-downloading", 640, 480, "dark", "yellow", "es", &m);
+    m.upd.pid = 0;
+    m.upd.state = UPD_DONE;
+    snprintf(m.upd.current, sizeof m.upd.current, "0.2.0");
+    m.view = V_UPDATED;
+    ok &= shot(dir, "update-done", 1024, 768, "light", "yellow", "en", &m);
+    m = linked();
+    m.cursor = ROW_UPDATES;
+    m.upd.state = UPD_OFFLINE;
+    ok &= shot(dir, "update-linked", 640, 480, "dark", "yellow", "es", &m);
     px_fonts_free();
     return ok ? 0 : 1;
 }

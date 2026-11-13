@@ -1,4 +1,4 @@
-/* Direct Link: host or join a Wi-Fi link between two handhelds.
+/* Direct Link: host or join a Wi-Fi link between two handhelds, and its own updates (update.py, through updater.c).
    Drawn in the menu's look by view.c and pixel.c (the theme and accent from settings.conf, Pixelify Sans).
    libdrm, both panels; the buttons, and touch on the bottom panel. */
 #include "view.h"
@@ -37,6 +37,7 @@ static Panel g_p[2];
 static uint32_t *g_buf[2];
 
 static char g_app[512];
+static int g_exit;                /* UPD_RESTART after an update: tile.sh opens the new version */
 
 static int g_job;
 static pid_t g_child;
@@ -549,7 +550,7 @@ static void connect_now(Model *m)
 static void handle(int act, int arg, Model *m)
 {
     if (act == ACT_NONE || g_child > 0) return;
-    if (act == ACT_QUIT) { g_stop = 1; return; }
+    if (act == ACT_QUIT) { if (!upd_installing(&m->upd)) g_stop = 1; return; }
     if (m->view == V_NEST) {
         if (act == ACT_OK) {
             if (run_sh("fix-nest.sh", m->err, (int)sizeof m->err)) { m->view = V_NEST_OK; m->err[0] = 0; }
@@ -561,6 +562,18 @@ static void handle(int act, int arg, Model *m)
         if (act == ACT_BACK || act == ACT_ABOUT || act == ACT_OK) m->view = V_MAIN;
         return;
     }
+    if (m->view == V_UPDATED) {
+        /* the new version is in place: tile.sh opens it */
+        if (act == ACT_OK) { g_exit = UPD_RESTART; g_stop = 1; }
+        return;
+    }
+    if (m->view == V_UPDATE) {
+        if (act == ACT_OK && !m->linked) { m->err[0] = 0; upd_start(&m->upd, g_app, "direct-link", 1); }
+        if (act == ACT_OK || act == ACT_BACK) m->view = V_MAIN;
+        return;
+    }
+    /* while it installs, the app stays open and nothing starts a link */
+    if (upd_installing(&m->upd) && act != ACT_UP && act != ACT_DOWN && act != ACT_ABOUT && act != ACT_ROW) return;
     if (m->view == V_UNINSTALL) {
         if (act == ACT_OK) {
             if (run_sh("uninstall.sh", m->err, (int)sizeof m->err)) g_stop = 1;
@@ -594,7 +607,15 @@ static void handle(int act, int arg, Model *m)
         break;
     default: break;
     }
+    if (act == ACT_OK && m->cursor == ROW_UPDATES) {
+        /* the Updates row: look for a newer version, or install the one found (not while linked) */
+        if (m->linked || upd_running(&m->upd)) return;
+        if (m->upd.state == UPD_AVAILABLE) m->view = V_UPDATE;
+        else upd_start(&m->upd, g_app, "direct-link", 0);
+        return;
+    }
     if (act == ACT_OK) {
+        if (upd_installing(&m->upd)) return;
         if (m->linked) m->view = V_DISC;           /* as before: A on a link asks to disconnect */
         else connect_now(m);
         return;
@@ -621,6 +642,7 @@ int main(void)
     px_settings_read(NULL, &g_settings);
     px_pal_make(&px, &g_settings);
     px_lang_set(g_settings.language, view_tr);
+    px_lang_add(upd_tr);
     if (!display_open()) return 1;
     g_buf[0] = calloc((size_t)g_w * (size_t)g_h, sizeof(uint32_t));
     g_buf[1] = calloc((size_t)g_w * (size_t)g_h, sizeof(uint32_t));
@@ -660,6 +682,9 @@ int main(void)
         closedir(d);
     }
     load_link(&m);
+    copy_str(m.upd.current, sizeof m.upd.current, m.version);
+    /* a look for a newer version as it opens (in the background; on a link, or with no network, it just says so) */
+    if (m.view == V_MAIN) upd_start(&m.upd, g_app, "direct-link", 0);
     status_tick(&m);
     while (!g_stop) {
         struct pollfd pf[33];
@@ -674,7 +699,7 @@ int main(void)
         m.dots = dots < 0 ? 0 : dots;
         if (dirty) draw(&m);
         dirty = 0;
-        r = poll(pf, (nfds_t)nf, g_child > 0 || m.lost ? 400 : 1000);
+        r = poll(pf, (nfds_t)nf, upd_running(&m.upd) ? 200 : g_child > 0 || m.lost ? 400 : 1000);
         if (r < 0) { if (errno == EINTR) continue; break; }
         if (g_pipe >= 0 && nf > 0 && (pf[nf - 1].revents & POLLIN)) drain_job();
         for (i = 0; i < ndev; i++) {
@@ -715,7 +740,14 @@ int main(void)
             if (g_job != JOB_NONE) load_link(&m);
             dirty = 1;
         }
-        now_dots = g_child > 0 || m.lost ? (ticks() / 400) % 3 : -1;
+        if (upd_poll(&m.upd)) {
+            dirty = 1;
+            if (!upd_running(&m.upd) && m.upd.installing && m.upd.state == UPD_DONE) {
+                m.view = V_UPDATED;
+                load_link(&m);
+            }
+        }
+        now_dots = g_child > 0 || m.lost || upd_running(&m.upd) ? (ticks() / 400) % 3 : -1;
         if (now_dots != dots) {
             dots = now_dots;
             if (g_child > 0) load_link(&m);
@@ -742,5 +774,5 @@ int main(void)
     free(g_buf[0]);
     free(g_buf[1]);
     px_fonts_free();
-    return 0;
+    return g_exit;
 }
