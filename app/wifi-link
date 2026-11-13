@@ -24,7 +24,8 @@
 # Security: this wpa_supplicant 2.11 is built without CONFIG_IBSS_RSN ("IBSS RSN not supported in the build"), so
 # the cell is open (unencrypted, anyone in reach can join it). Settings in /data/banana/direct-link.conf (KEY=value
 # lines, read, never run): CHANNEL (1-11), FREQ (MHz, wins over CHANNEL), SSID, BSSID, MAX (seconds, 0
-# means until Disconnect); BANANA_LINK_<KEY> in the
+# means until Disconnect), LOST_MAX (seconds a player goes on looking for a host it had and lost before it closes
+# the link and the home Wi-Fi comes back; 60, 0 means for good); BANANA_LINK_<KEY> in the
 # environment wins over the file; the options win over both.
 WIFI=${BANANA_LINK_WIFI:-/usr/libexec/banana/wifi}
 D=${BANANA_LINK_DIR:-${BANANA_LINK_RUN:-/run/banana}/direct-link}
@@ -129,11 +130,12 @@ super_pid() { p=$(cat "$D/super.pid" 2>/dev/null); alive "$p" && echo "$p"; }
 
 # the settings: the file, then the environment, then the options
 conf() {
-    SSID=bananalink BSSID=02:42:4e:41:00:01 CHANNEL=1 FREQ= MAX=0
+    SSID=bananalink BSSID=02:42:4e:41:00:01 CHANNEL=1 FREQ= MAX=0 LOST_MAX=60
     if [ -f "$CONF" ]; then
         while IFS='=' read -r k v || [ -n "$k" ]; do
             k=$(echo "$k" | tr -d ' \t\r'); v=$(echo "$v" | tr -d ' \t\r"'"'")
-            case $k in SSID) SSID=$v ;; BSSID) BSSID=$v ;; CHANNEL) CHANNEL=$v ;; FREQ) FREQ=$v ;; MAX) MAX=$v ;; esac
+            case $k in SSID) SSID=$v ;; BSSID) BSSID=$v ;; CHANNEL) CHANNEL=$v ;; FREQ) FREQ=$v ;; MAX) MAX=$v ;;
+                LOST_MAX) LOST_MAX=$v ;; esac
         done < "$CONF"
     fi
     [ -n "$BANANA_LINK_SSID" ] && SSID=$BANANA_LINK_SSID
@@ -141,6 +143,8 @@ conf() {
     [ -n "$BANANA_LINK_CHANNEL" ] && CHANNEL=$BANANA_LINK_CHANNEL
     [ -n "$BANANA_LINK_FREQ" ] && FREQ=$BANANA_LINK_FREQ
     [ -n "$BANANA_LINK_MAX" ] && MAX=$BANANA_LINK_MAX
+    [ -n "$BANANA_LINK_LOST_MAX" ] && LOST_MAX=$BANANA_LINK_LOST_MAX
+    case $LOST_MAX in ''|*[!0-9]*) LOST_MAX=60 ;; esac
     # (into wpa_supplicant's file: letters, digits, . _ - only; a BSSID as six hex pairs, else the defaults)
     SSID=$(printf '%s' "$SSID" | tr -cd 'A-Za-z0-9._-' | cut -c1-32); [ -n "$SSID" ] || SSID=bananalink
     case $BSSID in [0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]) ;;
@@ -228,7 +232,6 @@ host_heard() { arping -q -I $IF -c 2 -w 3 10.42.0.1 >/dev/null 2>&1; }
 # again every 20 s, before that scan; a player's cell, if one started its own, is adopted then.
 rx_count() { cat $SYS/$IF/statistics/rx_packets 2>/dev/null || echo 0; }
 renew_cell() { $W disconnect >/dev/null 2>&1; join_cell 0; }
-rejoin() { $W disconnect >/dev/null 2>&1; join_cell 35; }
 
 # ---- the supervisor --------------------------------------------------------------------------------------
 LOCKED='' MODE=normal HOME_UP=''
@@ -326,9 +329,10 @@ C
     log "ibss: $($W status 2>/dev/null | grep -e '^bssid' -e '^freq' -e '^ssid' -e '^mode' | tr '\n' ' ')"
     IP=$(pick_ip "$ROLE") || fail "no free address on the link"
     set_ip "$IP" || fail "the address $IP couldn't be set"
-    st_set state=up ip="$IP" phase=up
+    # (a player's phase while up: waiting (the host not heard yet), up (heard), lost (heard before, not now))
+    if [ "$ROLE" = join ]; then st_set state=up ip="$IP" phase=waiting; else st_set state=up ip="$IP" phase=up; fi
     log "up: $ROLE at $IP, $SSID on $FREQ MHz, owner ${OWNER:-none}, max ${MAX}s"
-    t0=$(date +%s) stopped=0 next=0 tries=0 heard='' rx=$(rx_count) rx_t=$(date +%s) renews=0
+    t0=$(date +%s) stopped=0 next=0 tries=0 heard='' had='' lost_t='' rx=$(rx_count) rx_t=$(date +%s) renews=0
     while :; do
         [ -f "$D/stop" ] && { MODE=$(cat "$D/stop" 2>/dev/null); [ "$MODE" = sleep ] || MODE=normal; log "down asked ($MODE)"; break; }
         if [ -n "$OWNER" ]; then
@@ -355,12 +359,27 @@ C
         if [ "$now" -ge "$next" ] && [ "$(st_get role)" = join ] && [ "$(st_get ip)" != 10.42.0.1 ]; then
             if host_heard; then
                 [ -n "$heard" ] || log "join: the host answers$([ $tries -gt 0 ] && echo " (after $tries new joins)")"
-                heard=1 tries=0 next=$((now + 10))
+                [ -n "$heard" ] || st_set phase=up
+                heard=1 had=1 lost_t='' tries=0 next=$((now + 10))
             else
                 [ -n "$heard" ] && log "join: the host stopped answering"
+                # a host this player had: lost (the app says so); for LOST_MAX seconds, then the link closes
+                if [ -n "$had" ]; then
+                    [ -n "$lost_t" ] || { lost_t=$now; st_set phase=lost; }
+                    if [ "$LOST_MAX" -gt 0 ] && [ $((now - lost_t)) -ge "$LOST_MAX" ]; then
+                        st_set msg="the host left"
+                        log "join: no host for ${LOST_MAX} s: restoring"; break
+                    fi
+                fi
                 heard='' tries=$((tries + 1))
                 log "join: no answer from the host (10.42.0.1): looking for its cell again ($tries)"
-                if rejoin; then log "join: a cell heard: joined it"; else log "join: no other cell heard in 35 s"; fi
+                # (a lost host: looked for only while LOST_MAX lasts)
+                left=35
+                if [ -n "$lost_t" ] && [ "$LOST_MAX" -gt 0 ]; then
+                    left=$((LOST_MAX - ($(date +%s) - lost_t))); [ $left -gt 35 ] && left=35; [ $left -lt 5 ] && left=5
+                fi
+                $W disconnect >/dev/null 2>&1
+                if join_cell $left; then log "join: a cell heard: joined it"; else log "join: no other cell heard in $left s"; fi
                 next=$(($(date +%s) + 2))
             fi
         fi
