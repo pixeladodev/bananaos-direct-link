@@ -5,7 +5,7 @@
 #include "pixel.h"
 #include "updater.h"
 
-enum { V_MAIN, V_SETTINGS, V_UNINSTALL, V_NEST, V_NEST_OK, V_DISC, V_ABOUT, V_UPDATE, V_UPDATED };
+enum { V_MAIN, V_SETTINGS, V_UNINSTALL, V_DISC, V_ABOUT, V_UPDATE, V_UPDATED };
 enum { ROW_MODE, ROW_ROLE, ROW_STATUS, ROW_COUNT };
 enum { SET_UPDATES, SET_ABOUT, SET_COUNT };
 /* how the two consoles are linked: only Wi-Fi works today */

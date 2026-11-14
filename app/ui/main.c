@@ -516,14 +516,6 @@ static int touch_action(int hx, int hy, int *arg)
     return act;
 }
 
-static int app_is_nested(void)
-{
-    const char *tail = "/direct-link/direct-link";
-    size_t n = strlen(g_app), t = strlen(tail);
-    if (n < t) return 0;
-    return strcmp(g_app + n - t, tail) == 0;
-}
-
 static int app_dir(void)
 {
     char exe[512];
@@ -574,13 +566,6 @@ static const char *sound_of(int act, Snap b, const Model *a, int leave)
 static void handle(int act, int arg, Model *m)
 {
     if (act == ACT_NONE || g_child > 0) return;
-    if (m->view == V_NEST) {
-        if (act == ACT_OK) {
-            if (run_sh("fix-nest.sh", m->err, (int)sizeof m->err)) { m->view = V_NEST_OK; m->err[0] = 0; }
-        } else if (act == ACT_BACK) g_stop = 1;
-        return;
-    }
-    if (m->view == V_NEST_OK) { if (act == ACT_OK || act == ACT_BACK) g_stop = 1; return; }
     if (m->view == V_SETTINGS) {
         if (act == ACT_BACK || act == ACT_MENU) { m->view = V_MAIN; m->cursor = 0; return; }
         if (m->linked && act != ACT_BACK) return;
@@ -671,7 +656,6 @@ int main(void)
     signal(SIGINT, on_signal);
     signal(SIGCHLD, SIG_DFL);
     if (!app_dir()) { fprintf(stderr, "direct-link: cannot find the app directory\n"); return 1; }
-    if (app_is_nested()) m.view = V_NEST;
     px_settings_read(NULL, &g_settings);
     px_pal_make(&px, &g_settings);
     px_lang_set(g_settings.language, view_tr);

@@ -49,7 +49,6 @@ const PxTr view_tr[] = {
     { "Uninstall", "Desinstalar" },
     { "Cancel", "Cancelar" },
     { "Back", "Atrás" },
-    { "Move it", "Moverla" },
     { "Waiting", "Esperando" },
     { "Coming soon", "Próximamente" },
     { "Updates wait until the link is off.", "Las actualizaciones esperan a que el enlace esté apagado." },
@@ -84,10 +83,6 @@ const PxTr view_tr[] = {
     { "%d connected", "%d conectadas" },
     { "Delete this app?", "¿Borrar esta app?" },
     { "This deletes Direct Link.", "Esto borra Direct Link." },
-    { "One folder too deep.", "Una carpeta de más." },
-    { "A moves it up one folder.", "A la sube una carpeta." },
-    { "Moved.", "Movida." },
-    { "Open Direct Link again.", "Abre Direct Link de nuevo." },
     { NULL, NULL }
 };
 
@@ -559,17 +554,6 @@ void view_bottom(PxCanvas *c, const Model *m)
         px_face(c, 18, 422, PX_LEFT, "B", T("Cancel"), 0, &r);
         add_face_hit(r, HIT_BACK);
         px_face(c, 622, 422, PX_RIGHT, "A", T("Uninstall"), 0, &r);
-        add_face_hit(r, HIT_OK);
-    } else if (m->view == V_NEST) {
-        dialog(c, T("One folder too deep."), m->err[0] ? m->err : T("A moves it up one folder."),
-               "direct-link/direct-link");
-        px_face(c, 18, 422, PX_LEFT, "B", T("Back"), 0, &r);
-        add_face_hit(r, HIT_BACK);
-        px_face(c, 622, 422, PX_RIGHT, "A", T("Move it"), 0, &r);
-        add_face_hit(r, HIT_OK);
-    } else {
-        dialog(c, T("Moved."), T("Open Direct Link again."), NULL);
-        px_face(c, 622, 422, PX_RIGHT, "A", T("Exit"), 0, &r);
         add_face_hit(r, HIT_OK);
     }
 }

@@ -37,14 +37,14 @@ else
 fi
 
 cp "$ROOT/app/wifi-link" "$ROOT/app/wifi-guard.sh" "$ROOT/app/host.sh" "$ROOT/app/join.sh" "$ROOT/app/down.sh" \
-    "$ROOT/app/status.sh" "$ROOT/app/tile.sh" "$ROOT/app/uninstall.sh" "$ROOT/app/fix-nest.sh" "$ROOT/app/update.py" "$ROOT/app/can-update.sh" \
+    "$ROOT/app/status.sh" "$ROOT/app/tile.sh" "$ROOT/app/uninstall.sh" "$ROOT/app/update.py" "$ROOT/app/can-update.sh" \
     "$ROOT/app/app.json" "$ROOT/app/manifest" "$APP/"
 cp "$ROOT/tiles/Direct Link.sh" "$STAGE/Direct Link.sh"
 # the Apps shelf's picture (tile.sh puts it in store/tiles/media/box)
 cp "$ROOT/packaging/store/tile.png" "$APP/tile.png"
 cp "$ROOT/INSTALL.txt" "$STAGE/INSTALL.txt"
 chmod 755 "$APP/ui/direct-link" "$APP/wifi-link" "$APP/wifi-guard.sh" "$APP/host.sh" "$APP/join.sh" "$APP/down.sh" \
-    "$APP/status.sh" "$APP/tile.sh" "$APP/uninstall.sh" "$APP/fix-nest.sh" "$APP/update.py" "$APP/can-update.sh" \
+    "$APP/status.sh" "$APP/tile.sh" "$APP/uninstall.sh" "$APP/update.py" "$APP/can-update.sh" \
     "$STAGE/Direct Link.sh"
 
 ZIP=$ROOT/dist/direct-link-$ver.zip

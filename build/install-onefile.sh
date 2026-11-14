@@ -39,7 +39,7 @@ cp -a "$WORK/$APP" "$DEST"
 cp "$WORK/$TILE" "$TILES/$TILE"
 chmod a+x "$DEST/tile.sh" "$DEST/wifi-link" "$DEST/wifi-guard.sh" "$DEST/host.sh" \
     "$DEST/join.sh" "$DEST/down.sh" "$DEST/status.sh" "$DEST/uninstall.sh" \
-    "$DEST/fix-nest.sh" "$DEST/update.py" "$DEST/can-update.sh" "$DEST/ui/direct-link" 2>/dev/null || true
+    "$DEST/update.py" "$DEST/can-update.sh" "$DEST/ui/direct-link" 2>/dev/null || true
 if [ -f "$DEST/tile.png" ]; then
     mkdir -p "$TILES/media/box"
     cp "$DEST/tile.png" "$TILES/media/box/Direct Link.png"

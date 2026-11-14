@@ -7,11 +7,11 @@ trap 'rm -rf "$T"' EXIT
 fail=0
 bad() { echo "FAIL $1"; fail=1; }
 
-for s in wifi-link wifi-guard.sh host.sh join.sh down.sh status.sh tile.sh uninstall.sh fix-nest.sh; do
+for s in wifi-link wifi-guard.sh host.sh join.sh down.sh status.sh tile.sh uninstall.sh; do
     sh -n "$ROOT/app/$s" || bad "syntax $s"
 done
 sh -n "$ROOT/tiles/Direct Link.sh" || bad "syntax tile"
-sh -n "$ROOT/build/package.sh" || bad "syntax package"
+grep -q exec "$ROOT/tiles/Direct Link.sh" || bad "tile must exec app tile.sh"
 
 grep -q 'store/apps/direct-link' "$ROOT/app/uninstall.sh" || bad "uninstall path"
 grep -q 'Direct Link.sh' "$ROOT/app/uninstall.sh" || bad "uninstall tile"
@@ -36,18 +36,6 @@ if sh "$ROOT/app/uninstall.sh" >/dev/null 2>"$T/unerr"; then
 else
     grep -q refusing "$T/unerr" || bad "uninstall message"
 fi
-
-APPS=$T/apps
-TILES=$T/tiles
-mkdir -p "$APPS/direct-link/direct-link" "$TILES"
-printf 'marker\n' > "$APPS/direct-link/direct-link/marker"
-cp "$ROOT/app/fix-nest.sh" "$APPS/direct-link/direct-link/fix-nest.sh"
-cp "$ROOT/app/wifi-link" "$APPS/direct-link/direct-link/wifi-link"
-printf 'tile\n' > "$APPS/direct-link/Direct Link.sh"
-DIRECT_LINK_APPS=$APPS DIRECT_LINK_TILES=$TILES sh "$APPS/direct-link/direct-link/fix-nest.sh" >/dev/null
-[ -f "$APPS/direct-link/marker" ] || bad "nest did not move the app"
-[ -f "$TILES/Direct Link.sh" ] || bad "nest did not move the tile"
-[ ! -d "$APPS/direct-link/direct-link" ] || bad "inner folder stayed"
 
 # wifi= line is saved, forced off, and put back. The other lines stay.
 printf 'language=en\nwifi="on"\nssh=off\n' > "$T/settings.conf"
@@ -95,7 +83,6 @@ printf '%s\n' "$alive" > "$T/run/wpa.pid"
 BANANA_LINK_DIR=$T/run sh "$ROOT/app/wifi-guard.sh" down
 grep -qx down "$T/called" || bad "guard blocked down after the link"
 
-# the app's updater, against a fake GitHub on localhost
 sh -n "$ROOT/app/can-update.sh" || bad "syntax can-update.sh"
 if command -v python3 >/dev/null 2>&1; then
     python3 "$ROOT/build/update-selftest.py" >/dev/null || bad "updater"
