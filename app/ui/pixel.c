@@ -44,6 +44,7 @@ void px_settings_read(const char *path, PxSettings *st)
     put(st->accent_text, sizeof st->accent_text, "auto");
     put(st->language, sizeof st->language, "en");
     put(st->clock, sizeof st->clock, "24h");
+    put(st->sounds, sizeof st->sounds, "on");
     if (!path) path = getenv("PIXEL_UI_SETTINGS");
     if (!path || !path[0]) path = "/data/banana/settings.conf";
     f = fopen(path, "r");
@@ -63,6 +64,7 @@ void px_settings_read(const char *path, PxSettings *st)
         else if (!strcmp(k, "accent_text")) put(st->accent_text, sizeof st->accent_text, v);
         else if (!strcmp(k, "language")) put(st->language, sizeof st->language, v);
         else if (!strcmp(k, "clock")) put(st->clock, sizeof st->clock, v);
+        else if (!strcmp(k, "sounds")) put(st->sounds, sizeof st->sounds, v);
     }
     fclose(f);
 }
@@ -304,6 +306,28 @@ static void th_set(const Th *t, const char *name, uint32_t *field)
 {
     uint32_t c;
     if (th_color(th_get(t, name), &c, NULL)) *field = c;
+}
+
+int px_theme_sound(const PxSettings *st, const char *name, char *out, size_t n)
+{
+    char key[64], path[512];
+    const char *v, *slash;
+    Th th;
+    FILE *f;
+    if (!st || !theme_read(st->theme, &th)) return 0;
+    snprintf(key, sizeof key, "sounds.%s", name);
+    v = th_get(&th, key);
+    if (!v[0]) return 0;
+    if (!strcmp(v, "off")) return -1;
+    if (v[0] == '/') put(out, n, v);
+    else {
+        if (!theme_path(st->theme, path, sizeof path)) return 0;
+        slash = strrchr(path, '/');
+        snprintf(out, n, "%.*s/%s", slash ? (int)(slash - path) : 1, slash ? path : ".", v);
+    }
+    if (!(f = fopen(out, "rb"))) return 0;
+    fclose(f);
+    return 1;
 }
 
 void px_pal_make(PxPal *p, const PxSettings *st)

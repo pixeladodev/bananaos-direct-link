@@ -12,6 +12,7 @@
 #ifndef PIXEL_H
 #define PIXEL_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -37,9 +38,10 @@ typedef struct {
     PxAccent accent;
 } PxPal;
 
-/* what /data/banana/settings.conf says (theme, accent, accent_text, language, clock) */
+/* what /data/banana/settings.conf says (theme, accent, accent_text, language, clock, sounds) */
 typedef struct {
     char theme[96], accent[16], accent_text[8], language[16], clock[8];
+    char sounds[8];
 } PxSettings;
 
 enum { PX_REGULAR = 0, PX_MEDIUM = 1 };
@@ -57,6 +59,7 @@ void px_settings_read(const char *path, PxSettings *st);
    colours as banana-ui reads them) and accent */
 void px_pal_make(PxPal *p, const PxSettings *st);
 extern PxPal px;                 /* the palette in use */
+int px_theme_sound(const PxSettings *st, const char *name, char *out, size_t n);
 
 /* fonts: Pixelify Sans Regular and Medium from dir (NULL: PIXEL_UI_FONTS, else /usr/share/banana/rnds/fonts) */
 int px_fonts_load(const char *dir);
