@@ -235,10 +235,13 @@ static void diagram(PxCanvas *c, const Model *m)
     }
 }
 
-static void stat(PxCanvas *c, float x, float y, float w, const char *label, const char *value, uint32_t rgb)
+static void stat_centered(PxCanvas *c, float cx, float y, float w, const char *label, const char *value, uint32_t rgb)
 {
-    px_text_fit(c, PX_MEDIUM, 22, x, y, value, rgb, 0, w, PX_LEFT);
-    px_label(c, x, y + 28, label, px.muted);
+    const char *v = value && value[0] && value[0] != ' ' ? value : "";
+    float lw;
+    px_text_fit(c, PX_MEDIUM, 22, cx - w * 0.5f, y, v, rgb, 0, w, PX_CENTER);
+    lw = px_text_w(c, PX_MEDIUM, 13, label, 0);
+    px_text(c, PX_MEDIUM, 13, cx - lw * 0.5f, y + 28, label, px.muted, 0);
 }
 
 void view_top(PxCanvas *c, const Model *m)
@@ -275,8 +278,8 @@ void view_top(PxCanvas *c, const Model *m)
         mine[0] = other[0] = 0;
         if (m->ip[0]) snprintf(mine, sizeof mine, "%s", m->ip);
         if (m->linked && m->peer[0]) snprintf(other, sizeof other, "%s", m->peer);
-        stat(c, 42, 288, 260, T("This console"), mine[0] ? mine : " ", m->ip[0] ? px.ink : px.muted);
-        stat(c, 330, 288, 260, T("Other console"), other[0] ? other : " ", m->linked && m->peer[0] ? px.ink : px.muted);
+        stat_centered(c, 150, 300, 132, T("This console"), mine, m->ip[0] ? px.ink : px.muted);
+        stat_centered(c, 490, 300, 132, T("Other console"), other, m->linked && m->peer[0] ? px.ink : px.muted);
         if (m->linked) {
             uint32_t g = px.light ? 0x1a8f3a : 0x3ddc73;
             if (m->peers <= 1) snprintf(who, sizeof who, "%s", T("connected (1)"));
