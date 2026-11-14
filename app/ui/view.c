@@ -36,8 +36,8 @@ const PxTr view_tr[] = {
     { "Made by", "Hecha por" },
     { "Source code", "Código fuente" },
     { "Credits", "Créditos" },
-    { "Two consoles play together over their own Wi-Fi, no router needed: RetroArch, PPSSPP and BananaDS netplay on BananaOS.",
-      "Dos consolas juegan juntas por su propio Wi-Fi, sin router: el juego en red de RetroArch, PPSSPP y BananaDS en BananaOS." },
+    { "Two consoles play together over their own Wi-Fi, no router needed. Shelf apps with LAN play can use the host at 10.42.0.1.",
+      "Dos consolas juegan juntas por su propio Wi-Fi, sin router. Las apps del estante con juego en red pueden usar el host en 10.42.0.1." },
     { "BananaOS and BananaLinux by JorreFog and the Banana contributors (MIT); wifi-link is adapted from BananaLinux. Pixelify Sans (OFL).",
       "BananaOS y BananaLinux, de JorreFog y los colaboradores de Banana (MIT); wifi-link está adaptado de BananaLinux. Pixelify Sans (OFL)." },
     { "An independent app, not part of BananaOS. Built and tested on the RG DS and the RG DS Plus. Free software under the MIT license.",
@@ -60,7 +60,7 @@ const PxTr view_tr[] = {
     { "Linked", "Enlazado" },
     { "No Wi-Fi radio.", "No hay radio Wi-Fi." },
     { "Don't change Wi-Fi in Settings.", "No cambies el Wi-Fi en Ajustes." },
-    { "Connect from RetroArch, PPSSPP, or BananaDS.", "Conéctate desde RetroArch, PPSSPP o BananaDS." },
+    { "In your game, point LAN play at 10.42.0.1 (BananaDS LAN: Auto).", "En tu juego, apunta el LAN a 10.42.0.1 (BananaDS LAN: Auto)." },
     { "Home Wi-Fi will disconnect.", "El Wi-Fi de casa se desconectará." },
     { "Starting the link", "Iniciando el enlace" },
     { "Joining the link", "Uniéndose al enlace" },
@@ -326,7 +326,7 @@ void view_top(PxCanvas *c, const Model *m)
         rgb[n++] = px.muted;
     } else if (m->linked) {
         lines[n] = T("Don't change Wi-Fi in Settings."); rgb[n++] = px.ink;
-        lines[n] = T("Connect from RetroArch, PPSSPP, or BananaDS."); rgb[n++] = px.muted;
+        lines[n] = T("In your game, point LAN play at 10.42.0.1 (BananaDS LAN: Auto)."); rgb[n++] = px.muted;
     } else if (!m->radio) {
         lines[n] = T("No Wi-Fi radio."); rgb[n++] = px.warn;
     } else {
@@ -451,7 +451,7 @@ static void view_about(PxCanvas *c, const Model *m)
     px_text_fit(c, PX_MEDIUM, 20, 600, 104, buf, px.muted, 0, 160, PX_RIGHT);
     y = 138;
     y += 25 * px_text_wrap(c, PX_REGULAR, 18, 40, y,
-                           T("Two consoles play together over their own Wi-Fi, no router needed: RetroArch, PPSSPP and BananaDS netplay on BananaOS."),
+                           T("Two consoles play together over their own Wi-Fi, no router needed. Shelf apps with LAN play can use the host at 10.42.0.1."),
                            px.ink, 560, 3, 25) + 10;
     px_label(c, 40, y + 4, T("Made by"), px.muted);
     px_text(c, PX_MEDIUM, 18, 200, y, "Pixelado Dev", px.ink, 0);

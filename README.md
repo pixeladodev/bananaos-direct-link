@@ -1,6 +1,6 @@
 # BananaOS Direct Link
 
-On the handheld the app is **Direct Link**. It puts two BananaOS handhelds on their own Wi-Fi so a game can use local multiplayer without a router. BananaDS LAN, RetroArch and PPSSPP can use it. The host is `10.42.0.1`. The other handheld takes the first free address from `10.42.0.2` to `10.42.0.9`.
+On the handheld the app is **Direct Link**. It puts two BananaOS handhelds on their own Wi-Fi so a game can use local multiplayer without a router. Shelf apps with LAN play (including BananaDS LAN) can use it. The host is `10.42.0.1`. The other handheld takes the first free address from `10.42.0.2` to `10.42.0.9`.
 
 The link stays up after you leave the app and while you change games. Disconnect brings the home Wi-Fi back. There is no internet while the link is up.
 
@@ -42,7 +42,7 @@ MIT. `app/wifi-link` is adapted from BananaLinux. See `LICENSE` and `NOTICE`.
 
 # BananaOS Direct Link
 
-En la consola la app se llama **Direct Link**. Pone dos consolas BananaOS en su propio Wi-Fi para que un juego use el multijugador local sin router. Sirve para BananaDS LAN, RetroArch y PPSSPP. El host es `10.42.0.1`. La otra consola toma la primera dirección libre entre `10.42.0.2` y `10.42.0.9`.
+En la consola la app se llama **Direct Link**. Pone dos consolas BananaOS en su propio Wi-Fi para que un juego use el multijugador local sin router. Sirve para apps del estante con juego en red (incluida BananaDS LAN). El host es `10.42.0.1`. La otra consola toma la primera dirección libre entre `10.42.0.2` y `10.42.0.9`.
 
 El enlace sigue activo al salir de la app y al cambiar de juego. Disconnect devuelve el Wi-Fi de casa. Mientras el enlace está activo no hay internet.
 

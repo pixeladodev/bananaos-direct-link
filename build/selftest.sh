@@ -25,9 +25,11 @@ grep '^exec' "$ROOT/app/join.sh" | grep -q -- '--owner' && bad "join passes --ow
 
 export BANANA_LINK_DIR=$T/run BANANA_LINK_LOG=$T/link.log BANANA_LINK_CONF=$T/direct-link.conf
 printf 'CHANNEL=6\nMAX=90\n' > "$BANANA_LINK_CONF"
+ver=$(sed -n 's/^app_version=//p' "$ROOT/app/manifest" | head -n 1 | tr -d '\r')
+[ -n "$ver" ] || bad "manifest app_version"
 out=$(sh "$ROOT/app/status.sh")
 printf '%s\n' "$out" | grep -qx 'state=down' || bad "status down: $out"
-printf '%s\n' "$out" | grep -qx 'version=0.1.0' || bad "version: $out"
+printf '%s\n' "$out" | grep -qx "version=$ver" || bad "version: $out"
 
 if sh "$ROOT/app/uninstall.sh" >/dev/null 2>"$T/unerr"; then
     bad "uninstall ran outside the store"

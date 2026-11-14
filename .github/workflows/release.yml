@@ -34,6 +34,7 @@ jobs:
           bash build/assemble-release-notes.sh > "$notes"
           gh release create "$GITHUB_REF_NAME" \
             "dist/direct-link-${ver}.zip" \
+            dist/Install-Direct-Link.sh \
             dist/SHA256SUMS \
             --title "Direct Link ${ver}" \
             --notes-file "$notes"

@@ -24,7 +24,7 @@ Add only the folder and the file from this zip:
 Then reboot once and open Apps. The tile is Direct Link.
 
 One handheld presses Host. The other presses Join.
-Connect from RetroArch, PPSSPP, or BananaDS. Don't change Wi-Fi in Settings while the link is on.
+In each game, use LAN play against 10.42.0.1 (in BananaDS LAN, leave Local multiplayer on Auto). Don't change Wi-Fi in Settings while the link is on.
 If Wi-Fi was on, Disconnect brings it back.
 
 One folder too deep
