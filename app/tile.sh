@@ -10,6 +10,7 @@ if [ -f "$APP/tile.png" ] && ! cmp -s "$APP/tile.png" "$BOX/Direct Link.png" 2>/
 fi
 "$APP/ui/direct-link"
 rc=$?
+[ -x "$APP/ui/direct-link" ] || sync 2>/dev/null || true
 # 75: the app has just updated itself (its folder is the new version now): open the new one
 if [ "$rc" = 75 ] && [ -f "$APP/tile.sh" ]; then
     exec sh "$APP/tile.sh"
