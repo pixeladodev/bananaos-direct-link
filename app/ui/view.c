@@ -272,19 +272,19 @@ void view_top(PxCanvas *c, const Model *m)
     diagram(c, m);
     if (m->mode == MODE_WIFI) {
         char mine[96], other[96], who[64];
-        snprintf(mine, sizeof mine, "%s", m->ip[0] ? m->ip : "-");
+        mine[0] = other[0] = 0;
+        if (m->ip[0]) snprintf(mine, sizeof mine, "%s", m->ip);
         if (m->linked && m->peer[0]) snprintf(other, sizeof other, "%s", m->peer);
-        else snprintf(other, sizeof other, "-");
-        stat(c, 42, 186, 260, T("This console"), mine, px.ink);
-        stat(c, 330, 186, 260, T("Other console"), other, m->linked && m->peer[0] ? px.ink : px.muted);
+        stat(c, 42, 288, 260, T("This console"), mine[0] ? mine : " ", m->ip[0] ? px.ink : px.muted);
+        stat(c, 330, 288, 260, T("Other console"), other[0] ? other : " ", m->linked && m->peer[0] ? px.ink : px.muted);
         if (m->linked) {
             uint32_t g = px.light ? 0x1a8f3a : 0x3ddc73;
             if (m->peers <= 1) snprintf(who, sizeof who, "%s", T("connected (1)"));
             else snprintf(who, sizeof who, T("%d connected"), m->peers);
-            px_text_fit(c, PX_MEDIUM, 24, 42, 252, who, g, 0, 520, PX_LEFT);
+            px_text_fit(c, PX_MEDIUM, 22, 42, 348, who, g, 0, 520, PX_LEFT);
         }
     }
-    px_line_h(c, 42, 326, 556, 2, px.edge, 70);
+    px_line_h(c, 42, 380, 556, 2, px.edge, 70);
 
     /* what is happening, as the app has always said it */
     if (m->view == V_SETTINGS && m->cursor == SET_UPDATES && m->job == JOB_NONE && !m->lost) {
@@ -331,7 +331,7 @@ void view_top(PxCanvas *c, const Model *m)
         rgb[n++] = px.ink;
     }
     if (m->err[0] && m->job == JOB_NONE && m->mode == MODE_WIFI && n < 4) { lines[n] = m->err; rgb[n++] = m->linked ? px.warn : px.ink; }
-    y = 338;
+    y = 392;
     for (i = 0; i < n && y < 440; i++)
         y += 24 * px_text_wrap(c, PX_REGULAR, 18, 42, y, lines[i], rgb[i], 556, 2, 24) + 4;
 }
@@ -494,35 +494,34 @@ void view_bottom(PxCanvas *c, const Model *m)
     }
 
     if (m->view == V_SETTINGS) {
-        PxFace f[3];
-        PxRect hr[3];
+        PxRect r;
+        float y = 422, bw;
         int inst = upd_installing(&m->upd);
-        f[0].key = "B"; f[0].label = T("Back"); f[0].dis = 0;
-        f[1].key = "Y"; f[1].label = T("Uninstall"); f[1].dis = busy || inst || m->linked;
-        f[2].key = "A"; f[2].label = m->cursor == SET_UPDATES ? upd_action(&m->upd) : T("Open");
-        f[2].dis = inst || (m->cursor == SET_UPDATES && (upd_running(&m->upd) || m->linked));
-        px_faces(c, 422, 3, 1, f, hr);
-        add_face_hit(hr[0], HIT_BACK);
-        add_face_hit(hr[1], HIT_Y);
-        add_face_hit(hr[2], HIT_OK);
+        px_face(c, 18, y, PX_LEFT, "B", T("Back"), 0, &r);
+        add_face_hit(r, HIT_BACK);
+        bw = px_face_w(c, "B", T("Back"));
+        px_face(c, 18 + bw + 8, y, PX_LEFT, "Y", T("Uninstall"), busy || inst || m->linked, &r);
+        add_face_hit(r, HIT_Y);
+        px_face(c, 622, y, PX_RIGHT, "A", m->cursor == SET_UPDATES ? upd_action(&m->upd) : T("Open"),
+                  inst || (m->cursor == SET_UPDATES && (upd_running(&m->upd) || m->linked)), &r);
+        add_face_hit(r, HIT_OK);
         return;
     }
     if (m->view == V_MAIN) {
-        PxFace f[3];
-        PxRect hr[3];
+        PxRect r;
+        float y = 422, bw;
         int inst = upd_installing(&m->upd);
-        f[0].key = "B"; f[0].label = T("Exit"); f[0].dis = busy || inst;
-        f[1].key = "START"; f[1].label = T("Settings"); f[1].dis = busy;
-        if (m->linked) {
-            f[2].key = "A"; f[2].label = T("Disconnect"); f[2].dis = busy;
-        } else {
-            f[2].key = "A"; f[2].label = m->role_sel ? T("Join") : T("Connect");
-            f[2].dis = !view_can_connect(m) || inst;
+        int show_a = m->linked || (m->cursor == ROW_STATUS && view_can_connect(m));
+        px_face(c, 18, y, PX_LEFT, "B", T("Exit"), busy || inst, &r);
+        add_face_hit(r, HIT_BACK);
+        bw = px_face_w(c, "B", T("Exit"));
+        px_face(c, 18 + bw + 8, y, PX_LEFT, "START", T("Settings"), busy, &r);
+        add_face_hit(r, HIT_MENU);
+        if (show_a) {
+            const char *al = m->linked ? T("Disconnect") : (m->role_sel ? T("Join") : T("Connect"));
+            px_face(c, 622, y, PX_RIGHT, "A", al, busy || inst, &r);
+            add_face_hit(r, HIT_OK);
         }
-        px_faces(c, 422, 3, 1, f, hr);
-        add_face_hit(hr[0], HIT_BACK);
-        add_face_hit(hr[1], HIT_MENU);
-        add_face_hit(hr[2], HIT_OK);
         return;
     }
     if (m->view == V_ABOUT) {
