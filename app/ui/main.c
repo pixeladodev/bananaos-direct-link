@@ -2,6 +2,7 @@
    Drawn in the menu's look by view.c and pixel.c (the theme and accent from settings.conf, Pixelify Sans).
    libdrm, both panels; the buttons, and touch on the bottom panel. */
 #include "view.h"
+#include "pixel_sound.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -548,6 +549,27 @@ static void connect_now(Model *m)
     start_job(m->role_sel ? JOB_JOIN : JOB_HOST);
 }
 
+typedef struct { int view, cursor, mode, role_sel; } Snap;
+static Snap snap(const Model *m)
+{
+    Snap s;
+    s.view = m->view;
+    s.cursor = m->cursor;
+    s.mode = m->mode;
+    s.role_sel = m->role_sel;
+    return s;
+}
+
+/* scroll when the highlight moves; select when opening a view or confirming; back when leaving */
+static const char *sound_of(int act, Snap b, const Model *a, int leave)
+{
+    if (leave) return act == ACT_BACK ? "back" : "select";
+    if (a->view != b.view) return act == ACT_BACK ? "back" : "select";
+    if (a->cursor != b.cursor || a->mode != b.mode || a->role_sel != b.role_sel) return "scroll";
+    if (act == ACT_OK) return "select";
+    return NULL;
+}
+
 /* one action (never while a script runs) */
 static void handle(int act, int arg, Model *m)
 {
@@ -654,6 +676,7 @@ int main(void)
     px_pal_make(&px, &g_settings);
     px_lang_set(g_settings.language, view_tr);
     px_lang_add(upd_tr);
+    px_sound_init(&g_settings, NULL);
     if (!display_open()) return 1;
     g_buf[0] = calloc((size_t)g_w * (size_t)g_h, sizeof(uint32_t));
     g_buf[1] = calloc((size_t)g_w * (size_t)g_h, sizeof(uint32_t));
@@ -746,9 +769,14 @@ int main(void)
         was_busy = g_child > 0;
         if (reap_job(m.err, (int)sizeof m.err)) { load_link(&m); dirty = 1; }
         if (!was_busy && act != ACT_NONE) {
+            Snap before = snap(&m);
             handle(act, arg, &m);
             m.job = g_job;
             if (g_job != JOB_NONE) load_link(&m);
+            {
+                const char *snd = sound_of(act, before, &m, g_stop);
+                if (snd) px_sound_play(snd);
+            }
             dirty = 1;
         }
         if (upd_poll(&m.upd)) {
@@ -784,6 +812,7 @@ int main(void)
     display_close();
     free(g_buf[0]);
     free(g_buf[1]);
+    px_sound_close(g_stop ? 0 : 400);
     px_fonts_free();
     return g_exit;
 }
