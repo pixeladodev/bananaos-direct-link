@@ -609,7 +609,7 @@ static void handle(int act, int arg, Model *m)
     switch (act) {
     case ACT_BACK: g_stop = 1; return;
     case ACT_MENU:
-        if (!busy && !m->linked) { m->view = V_SETTINGS; m->cursor = 0; }
+        if (!m->linked) { m->view = V_SETTINGS; m->cursor = 0; }
         return;
     case ACT_UP: if (m->cursor > 0) m->cursor--; return;
     case ACT_DOWN: if (m->cursor < ROW_COUNT - 1) m->cursor++; return;
