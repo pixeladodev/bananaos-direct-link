@@ -101,7 +101,8 @@ int main(int argc, char **argv)
     snprintf(m.ip, sizeof m.ip, "10.42.0.2");
     snprintf(m.peer, sizeof m.peer, "10.42.0.1");
     m.role_sel = 1;
-    m.cursor = ROW_PEER;
+    m.cursor = ROW_STATUS;
+    m.peers = 1;
     ok &= shot(dir, "guest", 640, 480, "dark", "yellow", "es", &m);
     m.lost = 1;
     m.peer[0] = 0;
@@ -126,7 +127,8 @@ int main(int argc, char **argv)
     ok &= shot(dir, "wifi", 640, 480, "user:neon-arcade", "yellow", "es", &m);
     /* the updater */
     m = base();
-    m.cursor = ROW_UPDATES;
+    m.view = V_SETTINGS;
+    m.cursor = SET_UPDATES;
     ok &= shot(dir, "update-uptodate", 640, 480, "dark", "yellow", "es", &m);
     m.upd.state = UPD_AVAILABLE;
     snprintf(m.upd.latest, sizeof m.upd.latest, "0.2.0");
@@ -146,7 +148,9 @@ int main(int argc, char **argv)
     m.view = V_UPDATED;
     ok &= shot(dir, "update-done", 1024, 768, "light", "yellow", "en", &m);
     m = linked();
-    m.cursor = ROW_UPDATES;
+    m.view = V_SETTINGS;
+    m.cursor = SET_UPDATES;
+    m.peers = 2;
     m.upd.state = UPD_OFFLINE;
     ok &= shot(dir, "update-linked", 640, 480, "dark", "yellow", "es", &m);
     px_fonts_free();

@@ -385,9 +385,11 @@ static void load_link(Model *m)
             kv(line, "home_wifi", m->home, (int)sizeof m->home);
             kv(line, "phase", m->phase, (int)sizeof m->phase);
             kv(line, "version", m->version, (int)sizeof m->version);
+            if (!strncmp(line, "peers=", 6)) m->peers = atoi(line + 6);
         }
         pclose(f);
     }
+    if (m->peers < 1 && m->linked) m->peers = m->peer[0] ? 1 : 0;
     m->radio = radio_ok();
     m->job = g_job;
     m->linked = linked_now(m);
@@ -465,7 +467,8 @@ typedef struct {
     int x, y, down, was;
 } Dev;
 
-enum { ACT_NONE, ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_OK, ACT_BACK, ACT_Y, ACT_QUIT, ACT_ROW, ACT_MODE, ACT_ABOUT };
+enum { ACT_NONE, ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_OK, ACT_BACK, ACT_Y, ACT_MENU, ACT_ROW, ACT_MODE,
+       ACT_ABOUT };
 
 /* Nintendo layout: A is the east button, B the south one, Y the west one */
 static int key_action(int code, int value)
@@ -479,8 +482,7 @@ static int key_action(int code, int value)
     case BTN_EAST: case KEY_ENTER: return ACT_OK;
     case BTN_WEST: return ACT_Y;
     case BTN_SOUTH: case KEY_BACKSPACE: case KEY_ESC: return ACT_BACK;
-    case BTN_START: return ACT_QUIT;
-    case BTN_SELECT: return ACT_ABOUT;
+    case BTN_START: return ACT_MENU;
     default: return ACT_NONE;
     }
 }
@@ -506,7 +508,7 @@ static int touch_action(int hx, int hy, int *arg)
         case HIT_BACK: act = ACT_BACK; break;
         case HIT_OK: act = ACT_OK; break;
         case HIT_Y: act = ACT_Y; break;
-        case HIT_SELECT: act = ACT_ABOUT; break;
+        case HIT_MENU: act = ACT_MENU; break;
         default: break;
         }
     }
@@ -550,7 +552,6 @@ static void connect_now(Model *m)
 static void handle(int act, int arg, Model *m)
 {
     if (act == ACT_NONE || g_child > 0) return;
-    if (act == ACT_QUIT) { if (!upd_installing(&m->upd)) g_stop = 1; return; }
     if (m->view == V_NEST) {
         if (act == ACT_OK) {
             if (run_sh("fix-nest.sh", m->err, (int)sizeof m->err)) { m->view = V_NEST_OK; m->err[0] = 0; }
@@ -558,8 +559,27 @@ static void handle(int act, int arg, Model *m)
         return;
     }
     if (m->view == V_NEST_OK) { if (act == ACT_OK || act == ACT_BACK) g_stop = 1; return; }
+    if (m->view == V_SETTINGS) {
+        if (act == ACT_BACK || act == ACT_MENU) { m->view = V_MAIN; m->cursor = 0; return; }
+        if (m->linked && act != ACT_BACK) return;
+        if (act == ACT_UP) { if (m->cursor > 0) m->cursor--; return; }
+        if (act == ACT_DOWN) { if (m->cursor < SET_COUNT - 1) m->cursor++; return; }
+        if (act == ACT_Y) { m->view = V_UNINSTALL; return; }
+        if (act == ACT_OK && m->cursor == SET_ABOUT) { m->view = V_ABOUT; return; }
+        if (act == ACT_OK && m->cursor == SET_UPDATES) {
+            if (m->upd.state == UPD_AVAILABLE) m->view = V_UPDATE;
+            else upd_start(&m->upd, g_app, "direct-link", 0);
+            return;
+        }
+        if (act == ACT_ROW) {
+            if (arg != m->cursor) { m->cursor = arg; return; }
+            if (arg == SET_ABOUT) { m->view = V_ABOUT; return; }
+            act = ACT_OK;
+        }
+        return;
+    }
     if (m->view == V_ABOUT) {
-        if (act == ACT_BACK || act == ACT_ABOUT || act == ACT_OK) m->view = V_MAIN;
+        if (act == ACT_BACK || act == ACT_ABOUT || act == ACT_OK) m->view = V_SETTINGS;
         return;
     }
     if (m->view == V_UPDATED) {
@@ -588,13 +608,11 @@ static void handle(int act, int arg, Model *m)
     }
     switch (act) {
     case ACT_BACK: g_stop = 1; return;
-    case ACT_ABOUT: m->view = V_ABOUT; return;
+    case ACT_MENU:
+        if (!busy && !m->linked) { m->view = V_SETTINGS; m->cursor = 0; }
+        return;
     case ACT_UP: if (m->cursor > 0) m->cursor--; return;
     case ACT_DOWN: if (m->cursor < ROW_COUNT - 1) m->cursor++; return;
-    case ACT_Y:
-        if (m->linked) m->view = V_DISC;
-        else m->view = V_UNINSTALL;
-        return;
     case ACT_MODE:
         m->cursor = ROW_MODE;
         if (!m->linked) m->mode = arg;
@@ -607,17 +625,10 @@ static void handle(int act, int arg, Model *m)
         break;
     default: break;
     }
-    if (act == ACT_OK && m->cursor == ROW_UPDATES) {
-        /* the Updates row: look for a newer version, or install the one found (not while linked) */
-        if (m->linked || upd_running(&m->upd)) return;
-        if (m->upd.state == UPD_AVAILABLE) m->view = V_UPDATE;
-        else upd_start(&m->upd, g_app, "direct-link", 0);
-        return;
-    }
     if (act == ACT_OK) {
         if (upd_installing(&m->upd)) return;
-        if (m->linked) m->view = V_DISC;           /* as before: A on a link asks to disconnect */
-        else connect_now(m);
+        if (m->linked) m->view = V_DISC;
+        else if (m->cursor == ROW_STATUS) connect_now(m);
         return;
     }
     if ((act == ACT_LEFT || act == ACT_RIGHT) && !m->linked) {

@@ -76,6 +76,12 @@ const PxTr view_tr[] = {
     { "network cable", "cable de red" },
     { "Disconnect?", "¿Desconectar?" },
     { "Home Wi-Fi comes back.", "Vuelve el Wi-Fi de casa." },
+    { "Settings", "Ajustes" },
+    { "Updates", "Actualizaciones" },
+    { "Open", "Abrir" },
+    { "connected", "conectadas" },
+    { "connected (1)", "1 conectada" },
+    { "%d connected", "%d conectadas" },
     { "Delete this app?", "¿Borrar esta app?" },
     { "This deletes Direct Link.", "Esto borra Direct Link." },
     { "One folder too deep.", "Una carpeta de más." },
@@ -96,7 +102,8 @@ int view_mode_works(int mode)
 
 int view_can_connect(const Model *m)
 {
-    return m->view == V_MAIN && !m->linked && m->job == JOB_NONE && m->radio && view_mode_works(m->mode);
+    return m->view == V_MAIN && m->cursor == ROW_STATUS && !m->linked && m->job == JOB_NONE && m->radio
+           && view_mode_works(m->mode);
 }
 
 static void add_hit(const PxCanvas *c, float x, float y, float w, float h, int id, int arg)
@@ -228,6 +235,12 @@ static void diagram(PxCanvas *c, const Model *m)
     }
 }
 
+static void stat(PxCanvas *c, float x, float y, float w, const char *label, const char *value, uint32_t rgb)
+{
+    px_text_fit(c, PX_MEDIUM, 22, x, y, value, rgb, 0, w, PX_LEFT);
+    px_label(c, x, y + 28, label, px.muted);
+}
+
 void view_top(PxCanvas *c, const Model *m)
 {
     char buf[320];
@@ -257,10 +270,24 @@ void view_top(PxCanvas *c, const Model *m)
     }
     px_line_h(c, 42, 156, 556, 2, px.edge, 70);
     diagram(c, m);
+    if (m->mode == MODE_WIFI) {
+        char mine[96], other[96], who[64];
+        snprintf(mine, sizeof mine, "%s", m->ip[0] ? m->ip : "-");
+        if (m->linked && m->peer[0]) snprintf(other, sizeof other, "%s", m->peer);
+        else snprintf(other, sizeof other, "-");
+        stat(c, 42, 186, 260, T("This console"), mine, px.ink);
+        stat(c, 330, 186, 260, T("Other console"), other, m->linked && m->peer[0] ? px.ink : px.muted);
+        if (m->linked) {
+            uint32_t g = px.light ? 0x1a8f3a : 0x3ddc73;
+            if (m->peers <= 1) snprintf(who, sizeof who, "%s", T("connected (1)"));
+            else snprintf(who, sizeof who, T("%d connected"), m->peers);
+            px_text_fit(c, PX_MEDIUM, 24, 42, 252, who, g, 0, 520, PX_LEFT);
+        }
+    }
     px_line_h(c, 42, 326, 556, 2, px.edge, 70);
 
-    /* what is happening, as the app has always said it (on the Updates row: what the updater says) */
-    if (m->cursor == ROW_UPDATES && m->job == JOB_NONE && !m->lost) {
+    /* what is happening, as the app has always said it */
+    if (m->view == V_SETTINGS && m->cursor == SET_UPDATES && m->job == JOB_NONE && !m->lost) {
         int quiet = m->linked && (m->upd.state == UPD_OFFLINE || m->upd.state == UPD_FAILED || m->upd.state == UPD_IDLE);
         if (!quiet) {
             upd_help(&m->upd, "Direct Link", buf, sizeof buf);
@@ -343,7 +370,7 @@ static void row(PxCanvas *c, const Model *m, int i, float y)
     int sel = m->cursor == i && m->view == V_MAIN;
     uint32_t ink = sel ? px.on_pick : px.ink, sub = sel ? px.on_pick_sub : px.muted;
     char buf[96];
-    static const char *const titles[ROW_COUNT] = { "Mode", "Role", "Status", "This console", "Other console", "Updates" };
+    static const char *const titles[ROW_COUNT] = { "Mode", "Role", "Status" };
     px_card(c, 18, y, 588, 50, sel, 0);
     add_hit(c, 18, y, 588, 50, HIT_ROW, i);
     px_text_fit(c, PX_MEDIUM, 20, 38, y + 13, T(titles[i]), ink, 0, i == ROW_MODE ? 120 : 240, PX_LEFT);
@@ -364,36 +391,35 @@ static void row(PxCanvas *c, const Model *m, int i, float y)
         else px_text_fit(c, PX_MEDIUM, 20, 584, y + 13, buf, m->linked ? ink : sub, 0, 300, PX_RIGHT);
         break;
     }
-    case ROW_IP:
-        px_text_fit(c, PX_MEDIUM, 20, 584, y + 13, m->linked && m->ip[0] ? m->ip : "-", m->linked ? ink : sub, 0,
-                    300, PX_RIGHT);
+    default:
         break;
-    case ROW_UPDATES: {
-        int d;
+    }
+}
+
+static void set_row(PxCanvas *c, const Model *m, int i, float y, const char *title)
+{
+    int sel = m->cursor == i && m->view == V_SETTINGS, dis = 0;
+    uint32_t ink = sel ? px.on_pick : px.ink, sub = sel ? px.on_pick_sub : px.muted;
+    char buf[64];
+    int d;
+    (void)dis;
+    px_card(c, 18, y, 588, 54, sel, 0);
+    add_hit(c, 18, y, 588, 54, HIT_ROW, i);
+    px_text_fit(c, PX_MEDIUM, 20, 38, y + 14, title, ink, 0, 320, PX_LEFT);
+    if (i == SET_UPDATES) {
         uint32_t v = upd_lit(&m->upd) || upd_running(&m->upd) ? ink : sub;
         upd_value(&m->upd, buf, sizeof buf, &d, m->dots + 1);
         if (m->upd.state == UPD_DOWNLOADING) {
-            /* the percentage in a box of its own (the word beside it stays put), and a bar along the card */
             char pct[8];
             int p = m->upd.pct < 0 ? 0 : m->upd.pct > 100 ? 100 : m->upd.pct;
             float pw = px_text_w(c, PX_MEDIUM, 20, "100%", 0);
             snprintf(pct, sizeof pct, "%d%%", p);
-            px_text(c, PX_MEDIUM, 20, 584 - px_text_w(c, PX_MEDIUM, 20, pct, 0), y + 13, pct, v, 0);
-            px_text_fit(c, PX_MEDIUM, 20, 584 - pw - 10, y + 13, T("Downloading"), v, 0, 240, PX_RIGHT);
-            px_rect(c, 30, y + 42, 564, 3, sel ? px.on_pick_sub : px.line);
-            px_rect(c, 30, y + 42, 564.0f * p / 100, 3, sel ? px.on_pick : px.accent.base);
-        } else if (d >= 0) px_text_dots(c, PX_MEDIUM, 20, 584, y + 13, buf, d, v, 0, PX_RIGHT);
-        else px_text_fit(c, PX_MEDIUM, 20, 584, y + 13, buf, v, 0, 320, PX_RIGHT);
-        break;
-    }
-    default:
-        if (!m->linked) snprintf(buf, sizeof buf, "-");
-        else if (m->lost) snprintf(buf, sizeof buf, "%s", T("Host lost"));
-        else if (m->peer[0]) snprintf(buf, sizeof buf, "%s", m->peer);
-        else snprintf(buf, sizeof buf, "%s%s", T("Waiting"), "...");
-        px_text_fit(c, PX_MEDIUM, 20, 584, y + 13, buf, m->linked && m->peer[0] && !m->lost ? ink : sub, 0, 300,
-                    PX_RIGHT);
-        break;
+            px_text(c, PX_MEDIUM, 20, 584 - px_text_w(c, PX_MEDIUM, 20, pct, 0), y + 14, pct, v, 0);
+            px_text_fit(c, PX_MEDIUM, 20, 584 - pw - 10, y + 14, T("Downloading"), v, 0, 240, PX_RIGHT);
+            px_rect(c, 30, y + 46, 564, 3, sel ? px.on_pick_sub : px.line);
+            px_rect(c, 30, y + 46, 564.0f * p / 100, 3, sel ? px.on_pick : px.accent.base);
+        } else if (d >= 0) px_text_dots(c, PX_MEDIUM, 20, 584, y + 14, buf, d, v, 0, PX_RIGHT);
+        else px_text_fit(c, PX_MEDIUM, 20, 584, y + 14, buf, v, 0, 300, PX_RIGHT);
     }
 }
 
@@ -446,38 +472,57 @@ void view_bottom(PxCanvas *c, const Model *m)
 {
     char count[16];
     PxRect r;
-    int i, busy = m->job != JOB_NONE;
+    int i, busy = m->job != JOB_NONE, rows;
     g_nhits = 0;
     px_screen(c);
     px_bubble(c, 18, 14, 604, 54, 0);
-    px_text_fit(c, PX_MEDIUM, 26, 38, 25, "Direct Link", px.ink, 0, 440, PX_LEFT);
-    snprintf(count, sizeof count, "%02d/%02d", m->cursor + 1, ROW_COUNT);
+    if (m->view == V_SETTINGS) {
+        px_text_fit(c, PX_MEDIUM, 26, 38, 25, T("Settings"), px.ink, 0, 440, PX_LEFT);
+        rows = SET_COUNT;
+    } else {
+        px_text_fit(c, PX_MEDIUM, 26, 38, 25, "Direct Link", px.ink, 0, 440, PX_LEFT);
+        rows = ROW_COUNT;
+    }
+    snprintf(count, sizeof count, "%02d/%02d", m->cursor + 1, rows);
     px_text(c, PX_MEDIUM, 19, 602 - px_text_w(c, PX_MEDIUM, 19, count, 0), 30, count, px.muted, 0);
-    for (i = 0; i < ROW_COUNT; i++) row(c, m, i, 78 + i * 56);
-    px_rail(c, 615, 78, 330, m->cursor, 1, ROW_COUNT);
+    if (m->view == V_SETTINGS) {
+        for (i = 0; i < SET_COUNT; i++) set_row(c, m, i, 84 + i * 66, i == SET_ABOUT ? T("About") : T("Updates"));
+        px_rail(c, 615, 84, SET_COUNT * 66 - 12, m->cursor, 1, SET_COUNT);
+    } else {
+        for (i = 0; i < ROW_COUNT; i++) row(c, m, i, 84 + i * 66);
+        px_rail(c, 615, 84, ROW_COUNT * 66 - 12, m->cursor, 1, ROW_COUNT);
+    }
 
-    if (m->view == V_MAIN) {
-        PxFace f[4];
-        PxRect hr[4];
-        int ids[4], n = 0, i;
+    if (m->view == V_SETTINGS) {
+        PxFace f[3];
+        PxRect hr[3];
         int inst = upd_installing(&m->upd);
-        f[n].key = "B"; f[n].label = T("Exit"); f[n].dis = busy || inst; ids[n++] = HIT_BACK;
-        f[n].key = "SELECT"; f[n].label = T("About"); f[n].dis = 0; ids[n++] = HIT_SELECT;
+        f[0].key = "B"; f[0].label = T("Back"); f[0].dis = 0;
+        f[1].key = "Y"; f[1].label = T("Uninstall"); f[1].dis = busy || inst || m->linked;
+        f[2].key = "A"; f[2].label = m->cursor == SET_UPDATES ? upd_action(&m->upd) : T("Open");
+        f[2].dis = inst || (m->cursor == SET_UPDATES && (upd_running(&m->upd) || m->linked));
+        px_faces(c, 422, 3, 1, f, hr);
+        add_face_hit(hr[0], HIT_BACK);
+        add_face_hit(hr[1], HIT_Y);
+        add_face_hit(hr[2], HIT_OK);
+        return;
+    }
+    if (m->view == V_MAIN) {
+        PxFace f[3];
+        PxRect hr[3];
+        int inst = upd_installing(&m->upd);
+        f[0].key = "B"; f[0].label = T("Exit"); f[0].dis = busy || inst;
+        f[1].key = "START"; f[1].label = T("Settings"); f[1].dis = busy;
         if (m->linked) {
-            f[n].key = "Y"; f[n].label = T("Disconnect"); f[n].dis = busy; ids[n++] = HIT_Y;
+            f[2].key = "A"; f[2].label = T("Disconnect"); f[2].dis = busy;
         } else {
-            f[n].key = "Y"; f[n].label = T("Uninstall"); f[n].dis = busy || inst; ids[n++] = HIT_Y;
-            if (m->cursor == ROW_UPDATES) {
-                f[n].key = "A"; f[n].label = upd_action(&m->upd); f[n].dis = busy || upd_running(&m->upd);
-            } else {
-                /* a guest joins; a host connects */
-                f[n].key = "A"; f[n].label = m->role_sel ? T("Join") : T("Connect");
-                f[n].dis = !view_can_connect(m) || inst;
-            }
-            ids[n++] = HIT_OK;
+            f[2].key = "A"; f[2].label = m->role_sel ? T("Join") : T("Connect");
+            f[2].dis = !view_can_connect(m) || inst;
         }
-        px_faces(c, 422, n, 2, f, hr);
-        for (i = 0; i < n; i++) add_face_hit(hr[i], ids[i]);
+        px_faces(c, 422, 3, 1, f, hr);
+        add_face_hit(hr[0], HIT_BACK);
+        add_face_hit(hr[1], HIT_MENU);
+        add_face_hit(hr[2], HIT_OK);
         return;
     }
     if (m->view == V_ABOUT) {
