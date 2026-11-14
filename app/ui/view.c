@@ -511,7 +511,7 @@ void view_bottom(PxCanvas *c, const Model *m)
         PxRect r;
         float y = 422, bw;
         int inst = upd_installing(&m->upd);
-        int show_a = m->linked || (m->cursor == ROW_STATUS && view_can_connect(m));
+        int show_a = m->cursor == ROW_STATUS && (m->linked || view_can_connect(m));
         px_face(c, 18, y, PX_LEFT, "B", T("Exit"), busy || inst, &r);
         add_face_hit(r, HIT_BACK);
         bw = px_face_w(c, "B", T("Exit"));
