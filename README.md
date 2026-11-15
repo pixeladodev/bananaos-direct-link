@@ -1,73 +1,58 @@
-# BananaOS Direct Link
+# Direct Link
 
-On the handheld the app is **Direct Link**. It puts two BananaOS handhelds on their own Wi-Fi so a game can use local multiplayer without a router. Shelf apps with LAN play (including BananaDS LAN) can use it. The host is `10.42.0.1`. The other handheld takes the first free address from `10.42.0.2` to `10.42.0.9`.
+<p align="center">
+  <b>A direct Wi-Fi link between two BananaOS handhelds — no router, fixed addresses, games keep talking.</b>
+</p>
 
-The link stays up after you leave the app and while you change games. Disconnect brings the home Wi-Fi back. There is no internet while the link is up.
+<p align="center">
+  <a href="#overview">Overview</a> ·
+  <a href="#setup">Setup</a> ·
+  <a href="#extras">Extras</a>
+</p>
 
-The cell is open. BananaOS's wpa_supplicant is built without encrypted ad-hoc (IBSS RSN), so anyone in range can join. This is a local link, not a private network.
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/images/readme-dark.png" alt="Link active, dark theme, English"><br>
+      <sub><b>Dark</b> · host on <code>10.42.0.1</code></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/images/readme-light.png" alt="Link active, light theme, Spanish UI"><br>
+      <sub><b>Light</b> · Spanish UI</sub>
+    </td>
+  </tr>
+</table>
 
-## Install
+## Overview
 
-The zip contains `direct-link/`, `Direct Link.sh` and `INSTALL.txt`. Copy the folder to `store/apps/` and the tile to `store/tiles/`. Do not replace `store`. Reboot once, then open Apps. The full steps are in `INSTALL.txt`.
+- 🔗 **Host or join** — guests use `10.42.0.2`–`10.42.0.9`; the host stays on `10.42.0.1`.
+- 🎮 **Stays up** after you leave the app and while you change games.
+- 🏠 **Disconnect** brings back your home Wi-Fi (no internet on the link).
+- 🔓 **Open link** on stock BananaOS — no link password in the radio stack.
+- 🌐 **English or Spanish** — follows the handheld language.
 
-Devices: Anbernic RG DS and RG DS Plus, BananaOS 0.5.2.2 (also works on 0.5.0.1).
+## Setup
 
-## Uninstall
+1. **Download** the release zip and unzip it.
+2. **Easiest:** copy `Install-Direct-Link.sh` into `store/tiles`, reboot, open **Apps**, run the installer tile.
+3. **Manual:** put `direct-link` in `store/apps` and `Direct Link.sh` in `store/tiles` (keep the rest of `store` intact). Reboot, then open **Apps**.
 
-In the app, Y, then A. That disconnects and deletes `store/apps/direct-link` and `store/tiles/Direct Link.sh`.
+When you are done, leave **Apps** and open **Apps** again to refresh the shelf (temporary BananaOS limitation).
 
-## Updates
+Details for the shared **banana** folder are in `INSTALL.txt`.
 
-The app looks for a newer release on GitHub each time it opens; the **Updates** row says what it found, and A installs it: the zip is checked against the SHA-256 GitHub lists for it and installed the way the Store does (a new folder beside the old one, then a swap), so a failed download changes nothing. Not while a link is up. `app/update.py` does the work; `build/update-selftest.py` checks it against a fake GitHub on localhost.
+## Remove it
 
-## Settings
+In the app: **Y**, then **A**. Disconnects and removes the app folder and shelf tile.
 
-`/data/banana/direct-link.conf` is optional. It is read, never executed. One `KEY=value` per line: `CHANNEL` (1–11), `FREQ` (MHz, wins over `CHANNEL`), `SSID`, `BSSID`, `MAX` (seconds; `0` means until Disconnect).
+## Extras
 
-## Build
+Optional file `/data/banana/direct-link.conf` (read only): `CHANNEL`, `FREQ`, `SSID`, `BSSID`, `MAX` (seconds; `0` = until you disconnect).
 
-`./build/release-build.sh` (in Docker, `debian:trixie-slim`) is what a release runs. `./build/package.sh` compiles the on-screen app and writes `dist/direct-link-<version>.zip`. Set `CC` to an aarch64 gcc whose sysroot has libdrm, or have the `bananads-build:1` image available. `./build/selftest.sh` checks the scripts without a handheld.
+## Built with
 
-## Built with AI agents
+Open source (MIT). UI in C; `app/wifi-link` drives the radio. See `build/package.sh` and `build/selftest.sh`.
 
-Direct Link is an open source project built with the help of AI coding agents, following good engineering practices: every change is reviewed, and each release is tested on real RG DS and RG DS Plus consoles before it is published.
+## Credits
 
-Even so, as with any software, it may have bugs or behave unexpectedly on your setup. It is provided "as is", without warranty of any kind (see `LICENSE`). Use it at your own risk.
-
-## License
-
-MIT. `app/wifi-link` is adapted from BananaLinux. See `LICENSE` and `NOTICE`.
-
----
-
-# BananaOS Direct Link
-
-En la consola la app se llama **Direct Link**. Pone dos consolas BananaOS en su propio Wi-Fi para que un juego use el multijugador local sin router. Sirve para apps del estante con juego en red (incluida BananaDS LAN). El host es `10.42.0.1`. La otra consola toma la primera dirección libre entre `10.42.0.2` y `10.42.0.9`.
-
-El enlace sigue activo al salir de la app y al cambiar de juego. Disconnect devuelve el Wi-Fi de casa. Mientras el enlace está activo no hay internet.
-
-La red es abierta. El wpa_supplicant de BananaOS no trae ad hoc cifrado (IBSS RSN), así que cualquiera al alcance puede unirse. Es un enlace local, no una red privada.
-
-## Instalación
-
-El zip trae `direct-link/`, `Direct Link.sh` e `INSTALL.txt`. Copia la carpeta a `store/apps/` y el tile a `store/tiles/`. No reemplaces `store`. Reinicia una vez y abre Apps. Los pasos completos están en `INSTALL.txt`.
-
-Equipos: Anbernic RG DS y RG DS Plus, BananaOS 0.5.2.2 (también funciona en 0.5.0.1).
-
-## Actualizaciones
-
-La app busca una versión nueva en GitHub cada vez que se abre; la fila **Actualizaciones** dice lo que encontró y A la instala: el zip se verifica con el SHA-256 que GitHub publica y se instala como lo hace la Store (una carpeta nueva junto a la anterior y luego un cambio de nombre), así que una descarga fallida no cambia nada. No mientras haya un enlace activo.
-
-## Desinstalar
-
-En la app, Y y luego A. Eso desconecta y borra `store/apps/direct-link` y `store/tiles/Direct Link.sh`.
-
-## Hecho con agentes de IA
-
-Direct Link es un proyecto de código abierto hecho con ayuda de agentes de programación con IA, siguiendo buenas prácticas: cada cambio se revisa y cada versión se prueba en consolas RG DS y RG DS Plus reales antes de publicarse.
-
-Aun así, como todo software, puede tener errores o comportarse de forma inesperada en tu equipo. Se entrega "tal cual", sin garantía de ningún tipo (ver `LICENSE`). Úsalo bajo tu propia responsabilidad.
-
-## Licencia
-
-MIT. `app/wifi-link` está adaptado de BananaLinux. Ver `LICENSE` y `NOTICE`.
+**Pixelado Dev** — AI-assisted development, tested on hardware when possible. Provided as-is; see `LICENSE`.

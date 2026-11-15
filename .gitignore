@@ -1,3 +1,4 @@
 dist/
 app/ui/direct-link
 dev/consoles.local
+preview.env
