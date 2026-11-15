@@ -33,11 +33,19 @@
 
 ## Setup
 
-1. **Download** the release zip and unzip it.
-2. **Easiest:** copy `Install-Direct-Link.sh` into `store/tiles`, reboot, open **Apps**, run the installer tile.
-3. **Manual:** put `direct-link` in `store/apps` and `Direct Link.sh` in `store/tiles` (keep the rest of `store` intact). Reboot, then open **Apps**.
+**Option A — one installer file**
 
-When you are done, leave **Apps** and open **Apps** again to refresh the shelf (temporary BananaOS limitation).
+1. Download **Install-Direct-Link.sh** from the release.
+2. Copy it into **store/tiles** on the shared **banana** folder (do not replace the whole **store** folder).
+3. Reboot once, open **Apps**, and run the installer tile.
+
+**Option B — full zip**
+
+1. Download the release zip and extract it.
+2. Copy **direct-link** into **store/apps** and **Direct Link.sh** into **store/tiles** (do not replace the whole **store** folder).
+3. Reboot once, then open **Apps**.
+
+After either option, leave **Apps** and open **Apps** again so the list refreshes (temporary BananaOS limitation).
 
 Details for the shared **banana** folder are in `INSTALL.txt`.
 
